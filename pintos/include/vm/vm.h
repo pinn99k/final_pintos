@@ -2,6 +2,7 @@
 #define VM_VM_H
 #include <stdbool.h>
 #include "threads/palloc.h"
+#include "hash.h"
 
 enum vm_type {
 	/* page not initialized */
@@ -46,6 +47,7 @@ struct page {
 	struct frame *frame;   /* Back reference for frame */
 
 	/* Your implementation */
+	struct hash_elem hash_elem;
 
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
@@ -72,7 +74,7 @@ struct vm_entry {
 	uint32_t read_bytes;
 	struct file *file;
 	off_t ofs;
-};
+}; 
 
 /* The function table for page operations.
  * This is one way of implementing "interface" in C.

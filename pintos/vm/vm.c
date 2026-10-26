@@ -171,21 +171,6 @@ vm_do_claim_page (struct page *page) {
 	return swap_in (page, frame->kva);
 }
 
-void 
-vm_destroy(struct hash *vm){
-
-}
-
-bool 
-insert_vme(struct hash *vm, struct vm_entry *vme){
-
-}
-
-bool 
-delete_vme(struct hash *vm, struct vm_entry *vme){
-	
-}
-
 /* Initialize new supplemental page table */
 void
 supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
