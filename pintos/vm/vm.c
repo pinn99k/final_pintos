@@ -37,6 +37,22 @@ static struct frame *vm_get_victim (void);
 static bool vm_do_claim_page (struct page *page);
 static struct frame *vm_evict_frame (void);
 
+/* Returns a hash value for page p. */
+unsigned
+page_hash (const struct hash_elem *p_, void *aux UNUSED) {
+  const struct page *p = hash_entry (p_, struct page, hash_elem);
+  return hash_bytes (&p->va, sizeof p->va);
+}
+
+/* Returns true if page a precedes page b. */
+bool
+page_less (const struct hash_elem *a_,
+           const struct hash_elem *b_, void *aux UNUSED) {
+  const struct page *a = hash_entry (a_, struct page, hash_elem);
+  const struct page *b = hash_entry (b_, struct page, hash_elem);
+
+  return a->va < b->va;
+}
 /* Create the pending page object with initializer. If you want to create a
  * page, do not create it directly and make it through this function or
  * `vm_alloc_page`. */
@@ -55,6 +71,7 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		 * TODO: should modify the field after calling the uninit_new. */
 
 		/* TODO: Insert the page into the spt. */
+		spt_insert_page(spt, upage);
 	}
 err:
 	return false;
@@ -64,17 +81,28 @@ err:
 struct page *
 spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 	struct page *page = NULL;
+	
 	/* TODO: Fill this function. */
+	struct page* page = (struct page*)malloc(sizeof(struct page));
+	struct hash_elem *e;
 
-	return page;
+	// va의 hash_elem
+	page->va = pg_round_down(va);
+	
+	/* 못찾으면 NULL 리턴 */
+	e = hash_find(&spt->pages, &page->hash_elem);
+	free(page);
+
+	// 있으면 e에 해당하는 페이지 반환
+	return e!=NULL ? hash_entry(e, struct page, hash_elem) : NULL;
 }
 
 /* Insert PAGE into spt with validation. */
 bool
 spt_insert_page (struct supplemental_page_table *spt UNUSED,
 		struct page *page UNUSED) {
-	int succ = false;
-	/* TODO: Fill this function. */
+	/* 내장 함수 사용 */
+	int succ = hash_insert(&spt->pages, &page->hash_elem);
 
 	return succ;
 }
@@ -172,8 +200,9 @@ vm_do_claim_page (struct page *page) {
 }
 
 /* Initialize new supplemental page table */
-void
+void /* process.c initd 에서 초기화 하고 있음*/
 supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
+	hash_init(&spt->pages, page_hash, page_less, NULL)
 }
 
 /* Copy supplemental page table from src to dst */

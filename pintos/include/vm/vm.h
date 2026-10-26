@@ -47,7 +47,7 @@ struct page {
 	struct frame *frame;   /* Back reference for frame */
 
 	/* Your implementation */
-	struct hash_elem hash_elem;
+	struct hash_elem hash_elem; // 엔트리를 찾으면 page의 주소가 나옴
 
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
@@ -96,6 +96,8 @@ struct page_operations {
  * We don't want to force you to obey any specific design for this struct.
  * All designs up to you for this. */
 struct supplemental_page_table {
+	/* 그냥 해쉬를 들고있으면 되는거 아닌가? */
+	struct hash pages;
 };
 
 #include "threads/thread.h"
