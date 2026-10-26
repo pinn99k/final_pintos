@@ -7,7 +7,7 @@
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
 void
-vm_init (void) {
+vm_init (struct hash *vm) {
 	vm_anon_init ();
 	vm_file_init ();
 #ifdef EFILESYS  /* For project 4 */
@@ -169,6 +169,21 @@ vm_do_claim_page (struct page *page) {
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 
 	return swap_in (page, frame->kva);
+}
+
+void 
+vm_destroy(struct hash *vm){
+
+}
+
+bool 
+insert_vme(struct hash *vm, struct vm_entry *vme){
+
+}
+
+bool 
+delete_vme(struct hash *vm, struct vm_entry *vme){
+	
 }
 
 /* Initialize new supplemental page table */

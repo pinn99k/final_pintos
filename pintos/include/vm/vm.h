@@ -65,6 +65,15 @@ struct frame {
 	struct page *page;
 };
 
+struct vm_entry {
+	enum vm_type *type;
+	void *vaddr; // 페이지 테이블에 저장
+	uint32_t zero_bytes;
+	uint32_t read_bytes;
+	struct file *file;
+	off_t ofs;
+};
+
 /* The function table for page operations.
  * This is one way of implementing "interface" in C.
  * Put the table of "method" into the struct's member, and
@@ -97,7 +106,6 @@ struct page *spt_find_page (struct supplemental_page_table *spt,
 bool spt_insert_page (struct supplemental_page_table *spt, struct page *page);
 void spt_remove_page (struct supplemental_page_table *spt, struct page *page);
 
-void vm_init (void);
 bool vm_try_handle_fault (struct intr_frame *f, void *addr, bool user,
 		bool write, bool not_present);
 
