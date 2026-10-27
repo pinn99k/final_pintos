@@ -3,6 +3,7 @@
 #include "threads/malloc.h"
 #include "vm/vm.h"
 #include "vm/inspect.h"
+#include "vaddr.h"
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -184,9 +185,19 @@ vm_get_frame (void) {
 	말록 해서 프레임 공간 가져오면 되는거 아님? 
 	KVA를 가져와서 넣어줘야 하는거 아닌가?
 	*/
+
+	frame->page = palloc_get_page(PAL_USER);
+	frame->kva = frame->page + KERN_BASE;
+
+	memset(frame->page, 0, PGSIZE);
 	
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);
+
+	if (frame == NULL){
+		// 스왑 처리
+	}
+
 	return frame;
 }
 
@@ -224,13 +235,9 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	// 페이지 찾아오기
 	struct page *page = spt_find_page(spt, addr);
 	if(page == NULL){
-		// 둘 중 뭔지 모르겠음
-		thread_exit();
 		return false;
 	}
 	if(!not_present){ // 데이터를 기대하지 말아야 한다고 표시
-		// 둘 중 뭔지 모르겠음
-		thread_exit();
 		return false;
 	}
 	if(addr == NULL || !is_user_vaddr(addr) || !pml4_get_page(thread_current()->pml4, addr)){
@@ -238,13 +245,9 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 		페이지가 커널 가상 메모리 내에 있는 경우
 		액세스가 읽기 전용 페이지에 쓰기를 시도하는 경우
 		*/
-		// 둘 중 뭔지 모르겠음
-		thread_exit();
 		return false;
 	}
 	if(!write){
-		// 둘 중 뭔지 모르겠음
-		thread_exit();
 		return false;
 	}
 
@@ -278,7 +281,8 @@ vm_do_claim_page (struct page *page) {
 	page->frame = frame;
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
-	 
+	pml4_set_page(&thread_current()->pml4, frame->page, frame->kva, page->writable);
+
 	return swap_in (page, frame->kva);
 }
 
