@@ -796,7 +796,6 @@ validate_segment (const struct Phdr *phdr, struct file *file) {
 	return true;
 }
 
-#ifndef VM
 /* Codes of this block will be ONLY USED DURING project 2.
  * If you want to implement the function for whole project 2, implement it
  * outside of #ifndef macro. */
@@ -886,15 +885,15 @@ static bool install_page (void *upage, void *kpage, bool writable);
 //  * with palloc_get_page().
 //  * Returns true on success, false if UPAGE is already mapped or
 //  * if memory allocation fails. */
-// static bool
-// install_page (void *upage, void *kpage, bool writable) {
-// 	struct thread *t = thread_current ();
+static bool
+install_page (void *upage, void *kpage, bool writable) {
+	struct thread *t = thread_current ();
 
-// 	/* Verify that there's not already a page at that virtual
-// 	 * address, then map our page there. */
-// 	return (pml4_get_page (t->pml4, upage) == NULL
-// 			&& pml4_set_page (t->pml4, upage, kpage, writable));
-// }
+	/* Verify that there's not already a page at that virtual
+	 * address, then map our page there. */
+	return (pml4_get_page (t->pml4, upage) == NULL
+			&& pml4_set_page (t->pml4, upage, kpage, writable));
+}
 // #else
 /* From here, codes will be used after project 3.
  * If you want to implement the function for only project 2, implement it on the
