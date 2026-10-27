@@ -82,6 +82,11 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		/* spt_destory or kill 해줄때 page도 free 해줘야함. (메모리누수) */
 		page = malloc (sizeof (struct page));
 
+		/* 예외 처리 */
+		if (page == NULL){
+			goto err;
+		}
+
 		/* lazy_load 콜백함수 추가, 페이지 타입별 초기화 함수 지정 */
 		switch (VM_TYPE (type))
 		{
@@ -92,11 +97,17 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			uninit_new (page, upage, init, type, aux, file_backed_initializer);
 			break;
 		default:
+			free(page);
+			goto err;
 			break;
 		}
 
 		/* TODO: Insert the page into the spt. */
-		spt_insert_page(spt, upage);
+		if (!spt_insert_page(spt, upage)){
+			free(page);
+			goto err;
+		}
+		return true;
 	}
 err:
 	return false;
