@@ -17,6 +17,7 @@ vm_init (struct hash *vm) {
 	register_inspect_intr ();
 	/* DO NOT MODIFY UPPER LINES. */
 	/* TODO: Your code goes here. */
+	list_init(&frame_list);
 }
 
 /* Get the type of the page. This function is useful if you want to know the
@@ -199,6 +200,7 @@ vm_get_frame (void) {
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);  
 	
+	list_push_back(&frame_list, &frame->frame_elem);
 	return frame;
 }
 
