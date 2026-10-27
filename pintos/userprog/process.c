@@ -818,47 +818,47 @@ static bool install_page (void *upage, void *kpage, bool writable);
  *
  * Return true if successful, false if a memory allocation error
  * or disk read error occurs. */
-static bool
-load_segment (struct file *file, off_t ofs, uint8_t *upage,
-		uint32_t read_bytes, uint32_t zero_bytes, bool writable) {
-	ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
-	ASSERT (pg_ofs (upage) == 0);
-	ASSERT (ofs % PGSIZE == 0);
+// static bool
+// load_segment (struct file *file, off_t ofs, uint8_t *upage,
+// 		uint32_t read_bytes, uint32_t zero_bytes, bool writable) {
+// 	ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
+// 	ASSERT (pg_ofs (upage) == 0);
+// 	ASSERT (ofs % PGSIZE == 0);
 
-	file_seek (file, ofs);
-	while (read_bytes > 0 || zero_bytes > 0) {
-		/* Do calculate how to fill this page.
-		 * We will read PAGE_READ_BYTES bytes from FILE
-		 * and zero the final PAGE_ZERO_BYTES bytes. */
-		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
-		size_t page_zero_bytes = PGSIZE - page_read_bytes;
+// 	file_seek (file, ofs);
+// 	while (read_bytes > 0 || zero_bytes > 0) {
+// 		/* Do calculate how to fill this page.
+// 		 * We will read PAGE_READ_BYTES bytes from FILE
+// 		 * and zero the final PAGE_ZERO_BYTES bytes. */
+// 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+// 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-		/* Get a page of memory. */
-		uint8_t *kpage = palloc_get_page (PAL_USER);
-		if (kpage == NULL)
-			return false;
+// 		/* Get a page of memory. */
+// 		uint8_t *kpage = palloc_get_page (PAL_USER);
+// 		if (kpage == NULL)
+// 			return false;
 
-		/* Load this page. */
-		if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes) {
-			palloc_free_page (kpage);
-			return false;
-		}
-		memset (kpage + page_read_bytes, 0, page_zero_bytes);
+// 		/* Load this page. */
+// 		if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes) {
+// 			palloc_free_page (kpage);
+// 			return false;
+// 		}
+// 		memset (kpage + page_read_bytes, 0, page_zero_bytes);
 
-		/* Add the page to the process's address space. */
-		if (!install_page (upage, kpage, writable)) {
-			printf("fail\n");
-			palloc_free_page (kpage);
-			return false;
-		}
+// 		/* Add the page to the process's address space. */
+// 		if (!install_page (upage, kpage, writable)) {
+// 			printf("fail\n");
+// 			palloc_free_page (kpage);
+// 			return false;
+// 		}
 
-		/* Advance. */
-		read_bytes -= page_read_bytes;
-		zero_bytes -= page_zero_bytes;
-		upage += PGSIZE;
-	}
-	return true;
-}
+// 		/* Advance. */
+// 		read_bytes -= page_read_bytes;
+// 		zero_bytes -= page_zero_bytes;
+// 		upage += PGSIZE;
+// 	}
+// 	return true;
+// }
 
 /* Create a minimal stack by mapping a zeroed page at the USER_STACK */
 static bool
@@ -895,16 +895,39 @@ install_page (void *upage, void *kpage, bool writable) {
 	return (pml4_get_page (t->pml4, upage) == NULL
 			&& pml4_set_page (t->pml4, upage, kpage, writable));
 }
-#else
+// #else
 /* From here, codes will be used after project 3.
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
 
+/* 페이지 지연 로딩 함수, uninit_page의 콜백함수로 지정. */
 static bool
 lazy_load_segment (struct page *page, void *aux) {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
+	struct vm_entry *_aux = aux;
+	uint8_t *kpage = palloc_get_page (PAL_USER);
+	if (kpage == NULL) 
+		return false;
+	
+	if (file_read (_aux->file, kpage, _aux->read_bytes) != (int) _aux->read_bytes) {
+		palloc_free_page (kpage);
+		return false;
+	}
+
+	memset (kpage + _aux->read_bytes, 0, _aux->zero_bytes);
+
+	if (!install_page (page->va, kpage, page->writable)) {
+		print ("fail\n");
+		palloc_free_page (kpage);
+		return false;
+	}
+
+	/* 페이지테이블에 등록시켜놨기 때문에 vm_entry를 할당해제 시켜준다. (메모리누수 방지) */
+	free (_aux);
+
+	return true;
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
