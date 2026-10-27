@@ -69,8 +69,6 @@ struct frame {
 };
 
 struct vm_entry {
-	enum vm_type *type;
-	void *vaddr; // 페이지 테이블에 저장
 	uint32_t zero_bytes;
 	uint32_t read_bytes;
 	struct file *file;
