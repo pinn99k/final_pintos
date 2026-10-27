@@ -187,15 +187,16 @@ vm_get_frame (void) {
 	*/
 
 	frame->page = palloc_get_page(PAL_USER);
-	frame->kva = frame->page + KERN_BASE;
+	frame->kva = KERN_BASE + frame->page->va;
 
-	memset(frame->page, 0, PGSIZE);
+	memset(frame->page, 0, sizeof frame->page);
 	
 	ASSERT (frame != NULL);
-	ASSERT (frame->page == NULL);
+	ASSERT (frame->page == NULL);  
 
-	if (frame == NULL){
-		// 스왑 처리
+	if(frame == NULL){
+		//페이지 스왑
+		return NULL;
 	}
 
 	return frame;
@@ -233,23 +234,32 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	> 페이지 테이블을 업데이트
 	*/
 	// 페이지 찾아오기
-	struct page *page = spt_find_page(spt, addr);
-	if(page == NULL){
+
+	/* 권한위반 검사 */
+	if (addr == NULL || !is_user_vaddr(addr) || !not_present){
 		return false;
 	}
-	if(!not_present){ // 데이터를 기대하지 말아야 한다고 표시
-		return false;
-	}
-	if(addr == NULL || !is_user_vaddr(addr) || !pml4_get_page(thread_current()->pml4, addr)){
-		/*
-		페이지가 커널 가상 메모리 내에 있는 경우
-		액세스가 읽기 전용 페이지에 쓰기를 시도하는 경우
-		*/
-		return false;
-	}
+	// !pml4_get_page(thread_current()->pml4, addr))
+
 	if(!write){
+		// 둘 중 뭔지 모르겠음
+		thread_exit();
 		return false;
 	}
+
+	// spt에 페이지가 존재하는지 찾기
+	struct page *page = spt_find_page(spt, addr);
+
+	if(page == NULL){
+		/* TODO 
+		스택그로우 구현
+		vm 스택이 자라야 함
+		vm_alloc_page를 해야함
+		clame_page를 해야함 > 거기서 다시 do_clame_page
+		*/
+	}
+	// 스택 검사도 구현해야 하는 걸로 알고있음
+	// 근데 모르겠어요... 일단 패스
 
 	return vm_do_claim_page (page);
 }
@@ -266,8 +276,18 @@ vm_dealloc_page (struct page *page) {
 bool
 vm_claim_page (void *va UNUSED) {
 	struct page *page = NULL;
-	/* TODO: Fill this function */
 
+	/* TODO: Fill this function */
+	// spt에 페이지가 있나 확인하기
+	page = spt_find_page(&thread_current ()->spt, va);
+
+	// 없으면 실패 반환?
+	if(page ==NULL){
+		return false;
+	}
+
+	// 있으면 요청하기 뭔가 처리해 
+	// 스왑을 하던 할당을 하던
 	return vm_do_claim_page (page);
 }
 
@@ -275,6 +295,7 @@ vm_claim_page (void *va UNUSED) {
 static bool
 vm_do_claim_page (struct page *page) {
 	struct frame *frame = vm_get_frame ();
+	// NULL 일 경우 스왑 구현
 
 	/* Set links */
 	frame->page = page;
