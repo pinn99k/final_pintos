@@ -928,6 +928,9 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 	ASSERT (pg_ofs (upage) == 0);
 	ASSERT (ofs % PGSIZE == 0);
 
+	struct vm_entry *vm_entry =  NULL;
+	
+	/* page 단위로 elf파일 헤더의 읽을 수 있는 데이터 페이지 크기로 자르기 */
 	while (read_bytes > 0 || zero_bytes > 0) {
 		/* Do calculate how to fill this page.
 		 * We will read PAGE_READ_BYTES bytes from FILE
@@ -935,8 +938,17 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
+		vm_entry = malloc (sizeof (vm_entry));
+		vm_entry->file = file;
+		vm_entry->ofs = ofs;
+		vm_entry->read_bytes = page_read_bytes;
+		vm_entry->zero_bytes = page_zero_bytes;
+
+
 		/* TODO: Set up aux to pass information to the lazy_load_segment. */
-		void *aux = NULL;
+		void *aux = vm_entry;
+
+		/* 페이지 초기화 및 spt에 등록 */
 		if (!vm_alloc_page_with_initializer (VM_ANON, upage,
 					writable, lazy_load_segment, aux))
 			return false;
@@ -945,6 +957,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		read_bytes -= page_read_bytes;
 		zero_bytes -= page_zero_bytes;
 		upage += PGSIZE;
+		ofs += page_read_bytes; 
 	}
 	return true;
 }
