@@ -72,8 +72,8 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		 * TODO: should modify the field after calling the uninit_new. */
 
 
-		 	/* spt_destory or kill 해줄때 page도 free 해줘야함. (메모리누수) */
-			page = malloc (sizeof (struct page));
+		/* spt_destory or kill 해줄때 page도 free 해줘야함. (메모리누수) */
+		page = malloc (sizeof (struct page));
 
 		/* lazy_load 콜백함수 추가, 페이지 타입별 초기화 함수 지정 */
 		switch (VM_TYPE (type))
