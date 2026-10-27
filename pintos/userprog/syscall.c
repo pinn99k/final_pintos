@@ -104,6 +104,11 @@ check_string (const char *str) {
 /* The main system call interface */
 void
 syscall_handler (struct intr_frame *f UNUSED) {
+	
+	// 커널 > 유저 모드에서 rsp가 깨지는걸 방지
+	if(f->cs == SEL_UCSEG){
+		thread_current()->user_rsp = f->rsp;
+	}
 
 	// rax = 시스템 콜 번호
 	// rip; 돌아갈 주소
