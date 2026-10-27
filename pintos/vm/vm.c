@@ -48,10 +48,17 @@ page_hash (const struct hash_elem *p_, void *aux UNUSED) {
 bool
 page_less (const struct hash_elem *a_,
            const struct hash_elem *b_, void *aux UNUSED) {
-  const struct page *a = hash_entry (a_, struct page, hash_elem);
-  const struct page *b = hash_entry (b_, struct page, hash_elem);
 
-  return a->va < b->va;
+	if (a_ == NULL){
+		return true;
+	}
+	if (b_ == NULL){
+		return false;
+	}
+	const struct page *a = hash_entry (a_, struct page, hash_elem);
+	const struct page *b = hash_entry (b_, struct page, hash_elem);
+
+	return a->va < b->va;
 }
 /* Create the pending page object with initializer. If you want to create a
  * page, do not create it directly and make it through this function or
@@ -101,24 +108,27 @@ spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 	struct page *page = NULL;
 	
 	/* TODO: Fill this function. */
-	struct page *page = (struct page*)malloc(sizeof(struct page));
-	struct hash_elem *e;
-
-	// va의 hash_elem
-	page->va = va;
+	page = (struct page *)malloc(sizeof (struct page));
+	// 페이지와 연결
+	page->va = pg_round_down(va);
 	
 	/* 못찾으면 NULL 리턴 */
-	e = hash_find(&spt->pages, &page->hash_elem);
+	struct hash_elem *e = hash_find(&spt->pages, &page->hash_elem);
 	free(page);
-	
+
 	// 있으면 e에 해당하는 페이지 반환
-	return e!=NULL ? hash_entry(e, struct page, hash_elem) : NULL;
+	return e != NULL ? hash_entry(e, struct page, hash_elem) : NULL;
 }
 
 /* Insert PAGE into spt with validation. */
 bool
 spt_insert_page (struct supplemental_page_table *spt UNUSED,
 		struct page *page UNUSED) {
+	/* 예외 처리 */
+	if(spt == NULL || page == NULL){
+		return false;
+	}
+
 	/* 내장 함수 사용 */
 	int succ = hash_insert(&spt->pages, &page->hash_elem);
 
@@ -271,6 +281,9 @@ supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
 bool
 supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		struct supplemental_page_table *src UNUSED) {
+	
+	// TODO 구현
+	// 존나 복잡할 듯
 }
 
 /* Free the resource hold by the supplemental page table */
