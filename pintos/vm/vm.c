@@ -3,7 +3,7 @@
 #include "threads/malloc.h"
 #include "vm/vm.h"
 #include "vm/inspect.h"
-#include "vaddr.h"
+#include "threads/vaddr.h"
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -17,6 +17,7 @@ vm_init (struct hash *vm) {
 	register_inspect_intr ();
 	/* DO NOT MODIFY UPPER LINES. */
 	/* TODO: Your code goes here. */
+	list_init(&frame_list);
 }
 
 /* Get the type of the page. This function is useful if you want to know the
@@ -186,19 +187,20 @@ vm_get_frame (void) {
 	KVA를 가져와서 넣어줘야 하는거 아닌가?
 	*/
 
-	frame->page = palloc_get_page(PAL_USER);
-	frame->kva = KERN_BASE + frame->page->va;
+	frame = malloc(sizeof(struct frame));
+	// 어디서 초기화 하지?
+	// 프레임 지울때? 스왑할때 빼야할 듯
 
-	memset(frame->page, 0, sizeof frame->page);
-	
-	ASSERT (frame != NULL);
-	ASSERT (frame->page == NULL);  
-
+	frame->kva = palloc_get_page(PAL_USER | PAL_ZERO);
 	if(frame == NULL){
 		//페이지 스왑
 		return NULL;
 	}
-
+	
+	ASSERT (frame != NULL);
+	ASSERT (frame->page == NULL);  
+	
+	list_push_back(&frame_list, &frame->frame_elem);
 	return frame;
 }
 
