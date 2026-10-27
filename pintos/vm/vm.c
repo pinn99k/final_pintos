@@ -64,11 +64,29 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 
 	struct supplemental_page_table *spt = &thread_current ()->spt;
 
+	struct page *page = NULL;
 	/* Check wheter the upage is already occupied or not. */
 	if (spt_find_page (spt, upage) == NULL) {
 		/* TODO: Create the page, fetch the initialier according to the VM type,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
+
+
+		 	/* spt_destory or kill 해줄때 page도 free 해줘야함. (메모리누수) */
+			page = malloc (sizeof (struct page));
+
+		/* lazy_load 콜백함수 추가, 페이지 타입별 초기화 함수 지정 */
+		switch (VM_TYPE (type))
+		{
+		case VM_ANON :
+			uninit_new (page, upage, init, type, aux, anon_initializer);
+			break;		
+		case VM_FILE :	
+			uninit_new (page, upage, init, type, aux, file_backed_initializer);
+			break;
+		default:
+			break;
+		}
 
 		/* TODO: Insert the page into the spt. */
 		spt_insert_page(spt, upage);
