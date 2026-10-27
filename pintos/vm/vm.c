@@ -186,19 +186,19 @@ vm_get_frame (void) {
 	KVA를 가져와서 넣어줘야 하는거 아닌가?
 	*/
 
-	frame->page = palloc_get_page(PAL_USER);
-	frame->kva = KERN_BASE + frame->page->va;
+	frame = malloc(sizeof(struct frame));
+	// 어디서 초기화 하지?
+	// 프레임 지울때? 스왑할때 빼야할 듯
 
-	memset(frame->page, 0, sizeof frame->page);
-	
-	ASSERT (frame != NULL);
-	ASSERT (frame->page == NULL);  
-
+	frame->kva = palloc_get_page(PAL_USER | PAL_ZERO);
 	if(frame == NULL){
 		//페이지 스왑
 		return NULL;
 	}
-
+	
+	ASSERT (frame != NULL);
+	ASSERT (frame->page == NULL);  
+	
 	return frame;
 }
 
