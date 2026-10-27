@@ -205,6 +205,9 @@ vm_get_frame (void) {
 /* Growing the stack. */
 static void
 vm_stack_growth (void *addr UNUSED) {
+	// addr을 기준으로 PGSIZE만큼 확장하면 되나?
+	vm_alloc_page(VM_ANON, addr, true);
+	vm_claim_page(addr);
 }
 
 /* Handle the fault on write_protected page */
@@ -220,20 +223,6 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
-	/*
-	> 메모리 참조가 유효한지 확인
-	> 가상 메모리 페이지에 들어갈 콘텐츠 위치 찾기
-	> 파일 or 스왑 또는 모든 페이지가 0일 수 있음
-	> 공유 페이지의 경우 페이지 프레임엔 있지만 페이지 테이블엔 없을 수 있음
-	> 잘못된 접근 프로세스를 종료하는 경우
-	> 1. 유효하지 않은 사용자 주소
-	> 2. 커널 주소
-	> 3. 권한오류(읽기 전용 페이지에 쓰기 시도)
-	> 페이지 프레임을 할당
-	> 디스크에스 페이지 프레임으로 데이터 가져오고
-	> 페이지 테이블을 업데이트
-	*/
-	// 페이지 찾아오기
 
 	/* 권한위반 검사 */
 	if (addr == NULL || !is_user_vaddr(addr) || !not_present){
@@ -243,7 +232,6 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 
 	if(!write){
 		// 둘 중 뭔지 모르겠음
-		thread_exit();
 		return false;
 	}
 
@@ -252,11 +240,23 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 
 	if(page == NULL){
 		/* TODO 
-		스택그로우 구현
-		vm 스택이 자라야 함
-		vm_alloc_page를 해야함
-		clame_page를 해야함 > 거기서 다시 do_clame_page
+		페이지가 NULL 이면 stack 이 자랄 수 있는지 찾아서 늘리는게 아닌가?
+
+		늘리는거
+		userstack과 최대크기 사이에 존재하면서 rsp 보다 높은 주소에 있을때
 		*/
+
+		// rsp 검사
+		// 폴트가 스택 확장으로 처리할 수 있는지 검사
+		addr = pg_round_down(addr);
+		void *rsp = thread_current()->user_rsp;
+
+		// userstack과 최대크기 사이에 존재하면서 rsp 보다 높은 주소에 있을때
+		// Pintos에서는 최대 스택 크기를 1MB(1,048,576 bytes)로 제한
+		if (addr >= rsp - PGSIZE && USER_STACK - (1<<20) <= addr < USER_STACK){
+			vm_stack_growth(addr);
+			return true;
+		}
 	}
 	// 스택 검사도 구현해야 하는 걸로 알고있음
 	// 근데 모르겠어요... 일단 패스
