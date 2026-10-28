@@ -30,6 +30,8 @@ static void argument_stack (char **argv, int argc, struct intr_frame *if_);
 char* arg_pashing(char *s, char **save_ptr);
 struct thread *find_child(struct thread *parent, tid_t child_tid);
 
+
+
 /* General process initializer for initd and other process. */
 static bool // <- 메모리 부족을 감지하기 위해서 반환값을 bool로 변환
 process_init (void) {
@@ -618,7 +620,7 @@ load (const char *file_name, struct intr_frame *if_) {
 								- read_bytes);
 					} else {
 						/* Entirely zero.
-						 * Don't read anything from disk. */
+						 * Don't read anything from disk. */ 
 						read_bytes = 0;
 						zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
 					}
@@ -904,24 +906,20 @@ lazy_load_segment (struct page *page, void *aux) {
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
 	struct vm_entry *_aux = aux;
-	uint8_t *kpage = palloc_get_page (PAL_USER);
-	if (kpage == NULL) 
-		return false;
-	
-	if (file_read (_aux->file, kpage, _aux->read_bytes) != (int) _aux->read_bytes) {
-		palloc_free_page (kpage);
-		return false;
-	}
 
-	memset (kpage + _aux->read_bytes, 0, _aux->zero_bytes);
+	/* 파일 커서를 오프셋 위치로 옮겨준다.  */
+	file_seek(_aux->file, _aux->ofs);
 
-	if (!install_page (page->va, kpage, page->writable)) {
-		printf ("fail\n");
-		palloc_free_page (kpage);
+	/* 파일을 버퍼에 read_bytes 만큼 읽어들임. */
+	if (_aux->read_bytes != 0 && file_read (_aux->file, page->frame->kva, _aux->read_bytes) != (int) _aux->read_bytes) {
+		free (_aux);
 		return false;
 	}
 
-	/* 페이지테이블에 등록시켜놨기 때문에 vm_entry를 할당해제 시켜준다. (메모리누수 방지) */
+	/* 물리메모리의 페이지에 read_bytes 만큼 채우고 나머지 0으로 채우기  */
+	memset (page->frame->kva + _aux->read_bytes, 0, _aux->zero_bytes);
+
+	/* vm_entry를 할당해제 시켜준다. (메모리누수 방지) */
 	free (_aux);
 
 	return true;
