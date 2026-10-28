@@ -104,7 +104,7 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		}
 
 		/* TODO: Insert the page into the spt. */
-		if (!spt_insert_page(spt, upage)){
+		if (spt_insert_page(spt, upage) == false){
 			free(page);
 			goto err;
 		}
@@ -142,9 +142,11 @@ spt_insert_page (struct supplemental_page_table *spt UNUSED,
 	}
 
 	/* 내장 함수 사용 */
-	int succ = hash_insert(&spt->pages, &page->hash_elem);
+	if (hash_insert(&spt->pages, &page->hash_elem) == NULL){
+		return false;
+	};
 
-	return succ;
+	return true;
 }
 
 void
@@ -263,7 +265,6 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	}
 	// 스택 검사도 구현해야 하는 걸로 알고있음
 	// 근데 모르겠어요... 일단 패스
-
 	return vm_do_claim_page (page);
 }
 

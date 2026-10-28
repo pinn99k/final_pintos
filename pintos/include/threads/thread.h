@@ -156,15 +156,17 @@ struct thread {
 	void *user_rsp;
 	// 유저 rsp를 저장 = stack_growth를 위해
 
-#ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4;                     /* Page map level 4 */
 	struct file **fd_table; // fd -> 열린 파일
 	int next_fd; // 다음에 배정할 fd 번호
-#endif
-#ifdef VM
+
 	/* Table for whole virtual memory owned by thread. */
 	struct supplemental_page_table spt;
+
+#ifdef USERPROG
+#endif
+#ifdef VM
 #endif
 
 	/* Owned by thread.c. */
