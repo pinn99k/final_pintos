@@ -119,11 +119,11 @@ struct page *
 spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 	struct page *page = NULL;
 	
-	/* TODO: Fill this function. */
-	page = (struct page *)malloc(sizeof (struct page));
+	page = (struct page*)malloc(sizeof(struct page));
+	
 	// 페이지와 연결
 	page->va = pg_round_down(va);
-	
+
 	/* 못찾으면 NULL 리턴 */
 	struct hash_elem *e = hash_find(&spt->pages, &page->hash_elem);
 	free(page);
@@ -142,7 +142,7 @@ spt_insert_page (struct supplemental_page_table *spt UNUSED,
 	}
 
 	/* 내장 함수 사용 */
-	if (hash_insert(&spt->pages, &page->hash_elem) == NULL){
+	if (hash_insert(&spt->pages, &page->hash_elem) != NULL){
 		return false;
 	};
 
@@ -263,6 +263,7 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 			return true;
 		}
 	}
+	
 	// 스택 검사도 구현해야 하는 걸로 알고있음
 	// 근데 모르겠어요... 일단 패스
 	return vm_do_claim_page (page);
