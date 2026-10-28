@@ -34,7 +34,7 @@ enum vm_type {
 
 struct page_operations;
 struct thread;
-static struct list frame_list;
+extern struct list frame_list;
 
 #define VM_TYPE(type) ((type) & 7)
 

@@ -20,9 +20,7 @@
 #include "threads/mmu.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
-#ifdef VM
 #include "vm/vm.h"
-#endif
 
 static void process_cleanup (void);
 static bool load (const char *file_name, struct intr_frame *if_);
@@ -918,7 +916,7 @@ lazy_load_segment (struct page *page, void *aux) {
 	memset (kpage + _aux->read_bytes, 0, _aux->zero_bytes);
 
 	if (!install_page (page->va, kpage, page->writable)) {
-		print ("fail\n");
+		printf ("fail\n");
 		palloc_free_page (kpage);
 		return false;
 	}
@@ -960,7 +958,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-		vm_entry = malloc (sizeof (vm_entry));
+		vm_entry = malloc (sizeof (struct vm_entry));
 		vm_entry->file = file;
 		vm_entry->ofs = ofs;
 		vm_entry->read_bytes = page_read_bytes;
