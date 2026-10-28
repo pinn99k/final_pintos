@@ -17,7 +17,6 @@ vm_init (struct hash *vm) {
 	register_inspect_intr ();
 	/* DO NOT MODIFY UPPER LINES. */
 	/* TODO: Your code goes here. */
-	list_init(&frame_list);
 }
 
 /* Get the type of the page. This function is useful if you want to know the
@@ -191,6 +190,7 @@ vm_get_frame (void) {
 	// 어디서 초기화 하지?
 	// 프레임 지울때? 스왑할때 빼야할 듯
 
+	// 이걸 이렇게 가져오는게 맞나?
 	frame->kva = palloc_get_page(PAL_USER | PAL_ZERO);
 	if(frame == NULL){
 		//페이지 스왑
@@ -200,7 +200,8 @@ vm_get_frame (void) {
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);  
 	
-	list_push_back(&frame_list, &frame->frame_elem);
+	// 아니 프레임 리스트로 연결 하긴 해야하는데 이걸 어디서 해야할지 모르겠어요;;
+	// list_push_back(&frame_list, &frame->frame_elem);
 	return frame;
 }
 
@@ -238,7 +239,7 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	}
 
 	// spt에 페이지가 존재하는지 찾기
-	struct page *page = spt_find_page(spt, addr);
+	struct page *page = spt_find_page(spt, pg_round_down(addr));
 
 	if(page == NULL){
 		/* TODO 
