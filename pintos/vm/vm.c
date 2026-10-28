@@ -37,30 +37,9 @@ page_get_type (struct page *page) {
 static struct frame *vm_get_victim (void);
 static bool vm_do_claim_page (struct page *page);
 static struct frame *vm_evict_frame (void);
+unsigned page_hash (const struct hash_elem *p_, void *aux UNUSED);
+bool page_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
 
-/* Returns a hash value for page p. */
-unsigned
-page_hash (const struct hash_elem *p_, void *aux UNUSED) {
-  const struct page *p = hash_entry (p_, struct page, hash_elem);
-  return hash_bytes (&p->va, sizeof p->va);
-}
-
-/* Returns true if page a precedes page b. */
-bool
-page_less (const struct hash_elem *a_,
-           const struct hash_elem *b_, void *aux UNUSED) {
-
-	if (a_ == NULL){
-		return true;
-	}
-	if (b_ == NULL){
-		return false;
-	}
-	const struct page *a = hash_entry (a_, struct page, hash_elem);
-	const struct page *b = hash_entry (b_, struct page, hash_elem);
-
-	return a->va < b->va;
-}
 /* Create the pending page object with initializer. If you want to create a
  * page, do not create it directly and make it through this function or
  * `vm_alloc_page`. */
@@ -79,14 +58,8 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
 
-
 		/* spt_destory or kill 해줄때 page도 free 해줘야함. (메모리누수) */
 		page = malloc (sizeof (struct page));
-
-		/* 예외 처리 */
-		if (page == NULL){
-			goto err;
-		}
 
 		/* lazy_load 콜백함수 추가, 페이지 타입별 초기화 함수 지정 */
 		switch (VM_TYPE (type))
@@ -102,14 +75,17 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			goto err;
 			break;
 		}
+		page->writable = writable;
 
 		/* TODO: Insert the page into the spt. */
-		if (spt_insert_page(spt, upage) == false){
+		if (spt_insert_page(spt, page) == false){
 			free(page);
 			goto err;
 		}
+		
 		return true;
 	}
+
 err:
 	return false;
 }
@@ -117,19 +93,23 @@ err:
 /* Find VA from spt and return page. On error, return NULL. */
 struct page *
 spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
-	struct page *page = NULL;
-	
-	page = (struct page*)malloc(sizeof(struct page));
+	struct page *page;
 	
 	// 페이지와 연결
 	page->va = pg_round_down(va);
-
+	
+	// struct hash_elem p_elem = page->hash_elem;
 	/* 못찾으면 NULL 리턴 */
 	struct hash_elem *e = hash_find(&spt->pages, &page->hash_elem);
-	free(page);
 
 	// 있으면 e에 해당하는 페이지 반환
-	return e != NULL ? hash_entry(e, struct page, hash_elem) : NULL;
+	// 이게 과연 삼항연산자의 오류일까?
+	if( e != NULL){
+		page = hash_entry(e, struct page, hash_elem);
+		return page;
+	}
+
+	return NULL;
 }
 
 /* Insert PAGE into spt with validation. */
@@ -151,6 +131,7 @@ spt_insert_page (struct supplemental_page_table *spt UNUSED,
 
 void
 spt_remove_page (struct supplemental_page_table *spt, struct page *page) {
+	hash_delete(&spt->pages, &page->hash_elem);
 	vm_dealloc_page (page);
 	return true;
 }
@@ -180,7 +161,7 @@ vm_evict_frame (void) {
  * space.*/
 static struct frame *
 vm_get_frame (void) {
-	struct frame *frame = NULL;
+	struct frame *frame = malloc(sizeof(struct frame)); 
 	/* TODO: Fill this function. */
 
 	/* 
@@ -188,19 +169,19 @@ vm_get_frame (void) {
 	KVA를 가져와서 넣어줘야 하는거 아닌가?
 	*/
 
-	frame = malloc(sizeof(struct frame));
 	// 어디서 초기화 하지?
 	// 프레임 지울때? 스왑할때 빼야할 듯
 
 	// 이걸 이렇게 가져오는게 맞나?
-	frame->kva = palloc_get_page(PAL_USER | PAL_ZERO);
-	if(frame == NULL){
+	frame->kva = palloc_get_page(PAL_USER);
+	frame->page = NULL;
+	if(frame->kva == NULL){
 		//페이지 스왑
 		return NULL;
 	}
 	
 	ASSERT (frame != NULL);
-	ASSERT (frame->page == NULL);  
+	ASSERT (frame->page == NULL);
 	
 	// 아니 프레임 리스트로 연결 하긴 해야하는데 이걸 어디서 해야할지 모르겠어요;;
 	// list_push_back(&frame_list, &frame->frame_elem);
@@ -233,17 +214,12 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	if (addr == NULL || !is_user_vaddr(addr) || !not_present){
 		return false;
 	}
-	// !pml4_get_page(thread_current()->pml4, addr))
-
-	if(!write){
-		// 둘 중 뭔지 모르겠음
-		return false;
-	}
 
 	// spt에 페이지가 존재하는지 찾기
-	struct page *page = spt_find_page(spt, pg_round_down(addr));
+	struct page *page = spt_find_page(spt, addr);
 
 	if(page == NULL){
+		return false;
 		/* TODO 
 		페이지가 NULL 이면 stack 이 자랄 수 있는지 찾아서 늘리는게 아닌가?
 
@@ -253,15 +229,15 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 
 		// rsp 검사
 		// 폴트가 스택 확장으로 처리할 수 있는지 검사
-		addr = pg_round_down(addr);
-		void *rsp = thread_current()->user_rsp;
+		// addr = pg_round_down(addr);
+		// void *rsp = thread_current()->user_rsp;
 
-		// userstack과 최대크기 사이에 존재하면서 rsp 보다 높은 주소에 있을때
-		// Pintos에서는 최대 스택 크기를 1MB(1,048,576 bytes)로 제한
-		if (addr >= rsp - PGSIZE && USER_STACK - (1<<20) <= addr < USER_STACK){
-			vm_stack_growth(addr);
-			return true;
-		}
+		// // userstack과 최대크기 사이에 존재하면서 rsp 보다 높은 주소에 있을때
+		// // Pintos에서는 최대 스택 크기를 1MB(1,048,576 bytes)로 제한
+		// if (addr >= rsp - PGSIZE && USER_STACK - (1<<20) <= addr < USER_STACK){
+		// 	vm_stack_growth(addr);
+		// 	return true;
+		// }
 	}
 	
 	// 스택 검사도 구현해야 하는 걸로 알고있음
@@ -285,7 +261,6 @@ vm_claim_page (void *va UNUSED) {
 	/* TODO: Fill this function */
 	// spt에 페이지가 있나 확인하기
 	page = spt_find_page(&thread_current ()->spt, va);
-
 	// 없으면 실패 반환?
 	if(page ==NULL){
 		return false;
@@ -307,7 +282,12 @@ vm_do_claim_page (struct page *page) {
 	page->frame = frame;
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
-	pml4_set_page(&thread_current()->pml4, frame->page, frame->kva, page->writable);
+	if(!pml4_set_page(thread_current()->pml4, page->va, frame->kva, page->writable)){
+		page->frame = NULL;
+		palloc_free_page(frame->kva);
+		free(frame);
+		return false;
+	}
 
 	return swap_in (page, frame->kva);
 }
@@ -332,4 +312,28 @@ void
 supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
+}
+
+/* Returns a hash value for page p. */
+unsigned
+page_hash (const struct hash_elem *p_, void *aux UNUSED) {
+  const struct page *p = hash_entry (p_, struct page, hash_elem);
+  return hash_bytes (&p->va, sizeof p->va);
+}
+
+/* Returns true if page a precedes page b. */
+bool
+page_less (const struct hash_elem *a_,
+           const struct hash_elem *b_, void *aux UNUSED) {
+
+	// if (a_ == NULL){
+	// 	return true;
+	// }
+	// if (b_ == NULL){
+	// 	return false;
+	// }
+	const struct page *a = hash_entry (a_, struct page, hash_elem);
+	const struct page *b = hash_entry (b_, struct page, hash_elem);
+
+	return a->va < b->va;
 }
