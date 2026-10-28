@@ -991,6 +991,19 @@ setup_stack (struct intr_frame *if_) {
 	 * TODO: You should mark the page is stack. */
 	/* TODO: Your code goes here */
 
+		
+	/* 익명페이지 할당 및 초기화 + 보조마커로 스택페이지로 표시 */
+	if (vm_alloc_page (VM_ANON | VM_MARKER_0, stack_bottom, true)) {
+		success = vm_claim_page (stack_bottom);
+
+		
+		if (success){
+			if_ -> rsp = USER_STACK;					 	/* 성공시 페이지를 가상주소의 스택 첫 시작에 넣는다. */
+			thread_current() -> user_rsp = stack_bottom; 	/* 현재 프로세스에 rsp 갱신. (스택 페이지를 가상영역에 매핑한 정보 반영) */
+		}
+
+	}
+
 	return success;
 }
 
