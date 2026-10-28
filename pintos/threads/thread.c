@@ -841,7 +841,7 @@ schedule (void) {
 
 #ifdef USERPROG
 	/* Activate the new address space. */
-	process_activate (next);
+	// process_activate (next);
 #endif
 
 	if (curr != next) {

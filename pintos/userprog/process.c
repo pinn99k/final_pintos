@@ -801,7 +801,7 @@ validate_segment (const struct Phdr *phdr, struct file *file) {
  * outside of #ifndef macro. */
 
 /* load() helpers. */
-static bool install_page (void *upage, void *kpage, bool writable);
+// static bool install_page (void *upage, void *kpage, bool writable);
 
 /* Loads a segment starting at offset OFS in FILE at address
  * UPAGE.  In total, READ_BYTES + ZERO_BYTES bytes of virtual
@@ -885,15 +885,15 @@ static bool install_page (void *upage, void *kpage, bool writable);
 //  * with palloc_get_page().
 //  * Returns true on success, false if UPAGE is already mapped or
 //  * if memory allocation fails. */
-static bool
-install_page (void *upage, void *kpage, bool writable) {
-	struct thread *t = thread_current ();
+// static bool
+// install_page (void *upage, void *kpage, bool writable) {
+// 	struct thread *t = thread_current ();
 
-	/* Verify that there's not already a page at that virtual
-	 * address, then map our page there. */
-	return (pml4_get_page (t->pml4, upage) == NULL
-			&& pml4_set_page (t->pml4, upage, kpage, writable));
-}
+// 	/* Verify that there's not already a page at that virtual
+// 	 * address, then map our page there. */
+// 	return (pml4_get_page (t->pml4, upage) == NULL
+// 			&& pml4_set_page (t->pml4, upage, kpage, writable));
+// }
 // #else
 /* From here, codes will be used after project 3.
  * If you want to implement the function for only project 2, implement it on the
@@ -909,9 +909,10 @@ lazy_load_segment (struct page *page, void *aux) {
 
 	/* 파일 커서를 오프셋 위치로 옮겨준다.  */
 	file_seek(_aux->file, _aux->ofs);
-
+	
 	/* 파일을 버퍼에 read_bytes 만큼 읽어들임. */
 	if (_aux->read_bytes != 0 && file_read (_aux->file, page->frame->kva, _aux->read_bytes) != (int) _aux->read_bytes) {
+
 		free (_aux);
 		return false;
 	}
@@ -920,8 +921,8 @@ lazy_load_segment (struct page *page, void *aux) {
 	memset (page->frame->kva + _aux->read_bytes, 0, _aux->zero_bytes);
 
 	/* vm_entry를 할당해제 시켜준다. (메모리누수 방지) */
+	
 	free (_aux);
-
 	return true;
 }
 
@@ -996,10 +997,9 @@ setup_stack (struct intr_frame *if_) {
 	if (vm_alloc_page (VM_ANON | VM_MARKER_0, stack_bottom, true)) {
 		success = vm_claim_page (stack_bottom);
 
-		
 		if (success){
 			if_ -> rsp = USER_STACK;					 	/* 성공시 페이지를 가상주소의 스택 첫 시작에 넣는다. */
-			thread_current() -> user_rsp = stack_bottom; 	/* 현재 프로세스에 rsp 갱신. (스택 페이지를 가상영역에 매핑한 정보 반영) */
+			// thread_current() -> user_rsp = stack_bottom; 	/* 현재 프로세스에 rsp 갱신. (스택 페이지를 가상영역에 매핑한 정보 반영) */
 		}
 
 	}

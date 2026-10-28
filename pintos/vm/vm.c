@@ -94,22 +94,35 @@ err:
 struct page *
 spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 	struct page *page;
+	struct hash_iterator i;
+	hash_first (&i, spt);
 	
 	// 페이지와 연결
-	page->va = pg_round_down(va);
-	
-	// struct hash_elem p_elem = page->hash_elem;
-	/* 못찾으면 NULL 리턴 */
-	struct hash_elem *e = hash_find(&spt->pages, &page->hash_elem);
+	while (hash_next (&i)){
+		// 페이지 엔트리에 넣기
+		page = hash_entry (hash_cur(&i), struct page, hash_elem);
 
-	// 있으면 e에 해당하는 페이지 반환
-	// 이게 과연 삼항연산자의 오류일까?
-	if( e != NULL){
-		page = hash_entry(e, struct page, hash_elem);
-		return page;
+		// 맞으면 리턴 page
+		if (page->va == pg_round_down(va)){
+			return page;
+		}
 	}
 
+	// 다틀렸으면 NULL
 	return NULL;
+	
+	// // struct hash_elem p_elem = page->hash_elem;
+	// /* 못찾으면 NULL 리턴 */
+	// struct hash_elem *e = hash_find(&spt->pages, &page->hash_elem);
+
+	// // 있으면 e에 해당하는 페이지 반환
+	// // 이게 과연 삼항연산자의 오류일까?
+	// if( e != NULL){
+	// 	page = hash_entry(e, struct page, hash_elem);
+	// 	return page;
+	// }
+
+	// return NULL;
 }
 
 /* Insert PAGE into spt with validation. */
@@ -215,11 +228,14 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 		return false;
 	}
 
+	if(!write){
+		return false;
+	}
+
 	// spt에 페이지가 존재하는지 찾기
 	struct page *page = spt_find_page(spt, addr);
 
 	if(page == NULL){
-		return false;
 		/* TODO 
 		페이지가 NULL 이면 stack 이 자랄 수 있는지 찾아서 늘리는게 아닌가?
 
@@ -238,6 +254,7 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 		// 	vm_stack_growth(addr);
 		// 	return true;
 		// }
+		return false;
 	}
 	
 	// 스택 검사도 구현해야 하는 걸로 알고있음
@@ -326,12 +343,12 @@ bool
 page_less (const struct hash_elem *a_,
            const struct hash_elem *b_, void *aux UNUSED) {
 
-	// if (a_ == NULL){
-	// 	return true;
-	// }
-	// if (b_ == NULL){
-	// 	return false;
-	// }
+	if (a_ == NULL){
+		return true;
+	}
+	if (b_ == NULL){
+		return false;
+	}
 	const struct page *a = hash_entry (a_, struct page, hash_elem);
 	const struct page *b = hash_entry (b_, struct page, hash_elem);
 
