@@ -49,6 +49,7 @@ struct page {
 
 	/* Your implementation */
 	bool writable;
+	bool isFlag;
 	struct hash_elem hash_elem; // 엔트리를 찾으면 page의 주소가 나옴
 
 	/* Per-type data are binded into the union.

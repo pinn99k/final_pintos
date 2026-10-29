@@ -76,6 +76,7 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			break;
 		}
 		page->writable = writable;
+		page->isFlag = type & VM_MARKER_0;
 
 		/* TODO: Insert the page into the spt. */
 		if (spt_insert_page(spt, page) == false){
@@ -238,16 +239,18 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 
 		// rsp 검사
 		// 폴트가 스택 확장으로 처리할 수 있는지 검사
-		addr = pg_round_down(addr);
-		void *rsp = thread_current()->user_rsp;
-		void *stack_bottom = thread_current()->stack_bottom;
+		if (page->isFlag){
 
-		// userstack과 최대크기 사이에 존재하면서 rsp 보다 높은 주소에 있을때
-		// Pintos에서는 최대 스택 크기를 1MB(1,048,576 bytes)로 제한
-		if (addr >= rsp && addr < stack_bottom && addr < USER_STACK && USER_STACK - (1<<20) <= addr){
-			vm_stack_growth(addr);
-			return true;
-		}
+			addr = pg_round_down(addr);
+			void *rsp = thread_current()->user_rsp;
+
+			// userstack과 최대크기 사이에 존재하면서 rsp 보다 높은 주소에 있을때
+			// Pintos에서는 최대 스택 크기를 1MB(1,048,576 bytes)로 제한
+			if ((addr < rsp - 8) && (addr >= (USER_STACK - (1<<20))) && (addr < USER_STACK)){
+				vm_stack_growth(addr);
+				return true;
+			}
+		}	
 		return false;
 	}
 	
