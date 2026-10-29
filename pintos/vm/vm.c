@@ -209,6 +209,9 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
+	
+	// spt에 페이지가 존재하는지 찾기
+	struct page *page = spt_find_page(spt, addr);
 
 	/* 권한위반 검사 */
 	if (addr == NULL || !is_user_vaddr(addr) || !not_present){
@@ -218,9 +221,9 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	// 유저 커널을 먼저 검사하고 테스트 해야함
 	// 나중에 고민을 해보겠음
 	// (!write) return false
-
-	// spt에 페이지가 존재하는지 찾기
-	struct page *page = spt_find_page(spt, addr);
+	if (write && !page->writable){
+		return false;
+	}
 
 	if(page == NULL){
 		/* TODO 
