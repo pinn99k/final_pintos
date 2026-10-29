@@ -66,7 +66,7 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		{
 		case VM_ANON :
 			uninit_new (page, upage, init, type, aux, anon_initializer);
-			break;		
+			break;
 		case VM_FILE :	
 			uninit_new (page, upage, init, type, aux, file_backed_initializer);
 			break;
@@ -93,7 +93,7 @@ err:
 /* Find VA from spt and return page. On error, return NULL. */
 struct page *
 spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
-	struct page *page;
+	struct page *page = NULL; // NULL로 초기화
 	struct hash_iterator i;
 	hash_first (&i, spt);
 	
@@ -103,26 +103,13 @@ spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 		page = hash_entry (hash_cur(&i), struct page, hash_elem);
 
 		// 맞으면 리턴 page
-		if (page->va == pg_round_down(va)){
+		if ((uint64_t)page->va == pg_round_down(va)){
 			return page;
 		}
 	}
 
 	// 다틀렸으면 NULL
 	return NULL;
-	
-	// // struct hash_elem p_elem = page->hash_elem;
-	// /* 못찾으면 NULL 리턴 */
-	// struct hash_elem *e = hash_find(&spt->pages, &page->hash_elem);
-
-	// // 있으면 e에 해당하는 페이지 반환
-	// // 이게 과연 삼항연산자의 오류일까?
-	// if( e != NULL){
-	// 	page = hash_entry(e, struct page, hash_elem);
-	// 	return page;
-	// }
-
-	// return NULL;
 }
 
 /* Insert PAGE into spt with validation. */
@@ -135,11 +122,11 @@ spt_insert_page (struct supplemental_page_table *spt UNUSED,
 	}
 
 	/* 내장 함수 사용 */
-	if (hash_insert(&spt->pages, &page->hash_elem) != NULL){
-		return false;
+	if (hash_insert(&spt->pages, &page->hash_elem) == NULL){
+		return true;
 	};
 
-	return true;
+	return false;
 }
 
 void
@@ -222,18 +209,21 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
+	
+	// spt에 페이지가 존재하는지 찾기
+	struct page *page = spt_find_page(spt, addr);
 
 	/* 권한위반 검사 */
 	if (addr == NULL || !is_user_vaddr(addr) || !not_present){
 		return false;
 	}
 
-	if(!write){
+	// 유저 커널을 먼저 검사하고 테스트 해야함
+	// 나중에 고민을 해보겠음
+	// (!write) return false
+	if (write && !page->writable){
 		return false;
 	}
-
-	// spt에 페이지가 존재하는지 찾기
-	struct page *page = spt_find_page(spt, addr);
 
 	if(page == NULL){
 		/* TODO 
