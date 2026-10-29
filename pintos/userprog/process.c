@@ -998,9 +998,9 @@ setup_stack (struct intr_frame *if_) {
 		success = vm_claim_page (stack_bottom);
 
 		if (success){
-			if_ -> rsp = USER_STACK;					 	/* 성공시 페이지를 가상주소의 스택 첫 시작에 넣는다. */
-			// thread_current() -> user_rsp = stack_bottom; 	/* 현재 프로세스에 rsp 갱신. (스택 페이지를 가상영역에 매핑한 정보 반영) */
-		}
+			if_ -> rsp = USER_STACK;					 		/* 성공시 페이지를 가상주소의 스택 첫 시작에 넣는다. */
+			thread_current() -> stack_bottom = stack_bottom; 	/* 현재 프로세스에 stack_bottom 갱신. (스택 페이지를 가상영역에 매핑한 정보 반영) */
+		} 
 
 	}
 
