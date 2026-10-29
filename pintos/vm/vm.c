@@ -193,14 +193,14 @@ vm_get_frame (void) {
 static void
 vm_stack_growth (void *addr UNUSED) {
 	// addr을 기준으로 PGSIZE만큼 확장하면 되나?
-	// void *stack_page = pg_round_down(addr);
+	void *stack_page = pg_round_down(addr);
 
-	vm_alloc_page(VM_ANON, addr, true);
-	vm_claim_page(addr);
+	if(vm_alloc_page(VM_ANON, stack_page, true)){
+		vm_claim_page(stack_page);
+	}
 	
 	// 스택바텀 내리기
 	// thread_current()->stack_bottom += PGSIZE;
-
 }
 
 /* Handle the fault on write_protected page */
@@ -216,50 +216,45 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
-	
-	// spt에 페이지가 존재하는지 찾기
-	struct page *page = spt_find_page(spt, addr);
 
 	/* 권한위반 검사 */
-	if (addr == NULL || !is_user_vaddr(addr) || !not_present){
+	if (addr == NULL || !is_user_vaddr(addr)){
 		return false;
 	}
 
-	// 유저 커널을 먼저 검사하고 테스트 해야함
-	// 나중에 고민을 해보겠음
-	// (!write) return false
-	if (write && !page->writable){
-		return false;
+	if(not_present){
+		void *rsp = f->rsp;
+		// 유저와 커널에 맞게 rsp를 다르게 사용
+		if(!user){
+			rsp = thread_current()->user_rsp;
+		}
+
+		// userstack과 최대크기 사이에 존재하면서 rsp 보다 높은 주소에 있을때
+		// Pintos에서는 최대 스택 크기를 1MB(1,048,576 bytes)로 제한
+
+		if (((USER_STACK - (1<<20))) <= rsp && rsp - 8 <= addr && (addr < USER_STACK)){
+			vm_stack_growth(addr);
+			return true;
+		}
+		
+		// spt에 페이지가 존재하는지 찾기
+		struct page *page = spt_find_page(spt, addr);
+		
+		if(page == NULL){
+			return false;
+		}
+
+		// 유저 커널을 먼저 검사하고 테스트 해야함
+		// 나중에 고민을 해보겠음
+		// (!write) return false
+		if (write && !page->writable){
+			return false;
+		}
+
+		return vm_do_claim_page (page);
 	}
 
-	if(page == NULL){
-		/* TODO 
-		페이지가 NULL 이면 stack 이 자랄 수 있는지 찾아서 늘리는게 아닌가?
-
-		늘리는거
-		userstack과 최대크기 사이에 존재하면서 rsp 보다 높은 주소에 있을때
-		*/
-
-		// rsp 검사
-		// 폴트가 스택 확장으로 처리할 수 있는지 검사
-		if (page->isFlag){
-
-			addr = pg_round_down(addr);
-			void *rsp = thread_current()->user_rsp;
-
-			// userstack과 최대크기 사이에 존재하면서 rsp 보다 높은 주소에 있을때
-			// Pintos에서는 최대 스택 크기를 1MB(1,048,576 bytes)로 제한
-			if ((addr < rsp - 8) && (addr >= (USER_STACK - (1<<20))) && (addr < USER_STACK)){
-				vm_stack_growth(addr);
-				return true;
-			}
-		}	
-		return false;
-	}
-	
-	// 스택 검사도 구현해야 하는 걸로 알고있음
-	// 근데 모르겠어요... 일단 패스
-	return vm_do_claim_page (page);
+	return false;
 }
 
 /* Free the page.
@@ -279,9 +274,9 @@ vm_claim_page (void *va UNUSED) {
 	// spt에 페이지가 있나 확인하기
 	page = spt_find_page(&thread_current ()->spt, va);
 	// 없으면 실패 반환?
-	if(page ==NULL){
-		return false;
-	}
+	// if(page ==NULL){
+	// 	return false;
+	// }
 
 	// 있으면 요청하기 뭔가 처리해 
 	// 스왑을 하던 할당을 하던
