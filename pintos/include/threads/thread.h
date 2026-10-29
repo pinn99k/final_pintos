@@ -153,6 +153,7 @@ struct thread {
 	struct file *running_file;
 	// 현재 실행중인 파일
 
+	void *stack_bottom;	
 	void *user_rsp;
 	// 유저 rsp를 저장 = stack_growth를 위해
 
