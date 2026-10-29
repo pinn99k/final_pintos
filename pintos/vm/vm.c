@@ -193,11 +193,14 @@ vm_get_frame (void) {
 static void
 vm_stack_growth (void *addr UNUSED) {
 	// addr을 기준으로 PGSIZE만큼 확장하면 되나?
+	// void *stack_page = pg_round_down(addr);
+
 	vm_alloc_page(VM_ANON, addr, true);
-	// 스택바텀 내리기
-	thread_current()->stack_bottom += PGSIZE;
-	
 	vm_claim_page(addr);
+	
+	// 스택바텀 내리기
+	// thread_current()->stack_bottom += PGSIZE;
+
 }
 
 /* Handle the fault on write_protected page */
