@@ -947,8 +947,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 	ASSERT (pg_ofs (upage) == 0);
 	ASSERT (ofs % PGSIZE == 0);
 
-	struct vm_entry *vm_entry =  NULL;
 	
+	struct vm_entry *vm_entry =  NULL;
 	/* page 단위로 elf파일 헤더의 읽을 수 있는 데이터 페이지 크기로 자르기 */
 	while (read_bytes > 0 || zero_bytes > 0) {
 		/* Do calculate how to fill this page.
