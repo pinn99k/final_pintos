@@ -17,6 +17,7 @@
 #include "userprog/process.h"
 #include "threads/palloc.h"
 #include "threads/init.h" 
+#include "vm/vm.h"
 
 typedef int pid_t;
 struct lock file_lock;
@@ -70,13 +71,25 @@ syscall_init (void) {
 // 포인터가 존재하는지 확인하는 유틸 함수
 static void 
 check_address(const void *ptr){
-	if(ptr == NULL || !is_user_vaddr(ptr) || !pml4_get_page(thread_current()->pml4, ptr)){
+	struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
+	struct page *find_page = spt_find_page(spt, ptr);
+
+	// 최소 체크
+	if(ptr == NULL || !is_user_vaddr(ptr)){
 		sys_exit(-1);
+	}
+	// 추가 체크 검사
+	if(find_page == NULL){
+		if (((USER_STACK - (1<<20))) <= ptr && thread_current()->user_rsp - 8 <= ptr && (ptr < USER_STACK)){
+		} 
+		else{
+			sys_exit(-1);
+		}
 	}
 }
 
 static void
-check_buffer(const void *buf, unsigned size){
+check_buffer(const void *buf, unsigned size, bool is_write){
 	if (size == 0){
 		return;
 	}
@@ -85,8 +98,29 @@ check_buffer(const void *buf, unsigned size){
 	const uint8_t *end = start + size - 1; //주소의 끝
 
 	// 주소의 끝까지 페이지를 이동하면서 구경
-	for(const uint8_t *page = pg_round_down(start); page <= end; page += PGSIZE){
-		check_address(page);
+	for(uint8_t *page = pg_round_down(start); page <= end; page += PGSIZE){
+		struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
+		struct page *find_page = spt_find_page(spt, page);
+
+		// 최소 체크
+		if(page == NULL || !is_user_vaddr(page)){
+			sys_exit(-1);
+		}
+		// 추가 체크 검사
+		if(find_page == NULL){
+			if (((USER_STACK - (1<<20))) <= page && thread_current()->user_rsp - 8 <= page && (page < USER_STACK)){
+			} 
+			else{
+				sys_exit(-1);
+			}
+		}
+		else{
+			if (is_write){
+				if(!find_page->writable){
+					sys_exit(-1);
+				}
+			}
+		}
 	}
 }
 
@@ -331,7 +365,7 @@ sys_open(const char *file_name){
 
 int 
 sys_read(int fd, void *buffer, unsigned size){
-	check_buffer(buffer, size); // 버퍼가 정상인지 검사
+	check_buffer(buffer, size, true); // 버퍼가 정상인지 검사 // 쓸 수 있는지 검사를 인자로
 	int result = -1;
 
 	// 키보드
@@ -363,7 +397,7 @@ sys_read(int fd, void *buffer, unsigned size){
 int 
 sys_write (int fd, const void *buffer, unsigned size){
 	int result = -1;
-	check_buffer(buffer, size);
+	check_buffer(buffer, size, false); // 쓸 수 있는지 검사 필요 없음
 
 	if(fd == 0){ // 사용 불가
 		return -1;
