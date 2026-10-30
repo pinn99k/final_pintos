@@ -190,17 +190,16 @@ vm_get_frame (void) {
 }
 
 /* Growing the stack. */
-static void
+// bool 타입으로 변경
+static bool
 vm_stack_growth (void *addr UNUSED) {
 	// addr을 기준으로 PGSIZE만큼 확장하면 되나?
 	void *stack_page = pg_round_down(addr);
 
 	if(vm_alloc_page(VM_ANON, stack_page, true)){
-		vm_claim_page(stack_page);
+		return vm_claim_page(stack_page);
 	}
-	
-	// 스택바텀 내리기
-	// thread_current()->stack_bottom += PGSIZE;
+	return false;
 }
 
 /* Handle the fault on write_protected page */
@@ -222,7 +221,13 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 		return false;
 	}
 
-	if(not_present){
+	if (!not_present){
+		return false;
+	}
+	
+	struct page *page = spt_find_page(spt, addr);
+	if(page == NULL){
+	
 		void *rsp = f->rsp;
 		// 유저와 커널에 맞게 rsp를 다르게 사용
 		if(!user){
@@ -231,31 +236,22 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 
 		// userstack과 최대크기 사이에 존재하면서 rsp 보다 높은 주소에 있을때
 		// Pintos에서는 최대 스택 크기를 1MB(1,048,576 bytes)로 제한
-
-		if (((USER_STACK - (1<<20))) <= rsp && rsp - 8 <= addr && (addr < USER_STACK)){
-			vm_stack_growth(addr);
-			return true;
+		// USER_STACK - 1MB ≤ addr < USER_STACK
+		// rsp-8 <= addr
+		if (((USER_STACK - (1<<20))) <= addr && rsp - 8 <= addr && (addr < USER_STACK)){
+			return vm_stack_growth(addr);
 		}
 		
-		// spt에 페이지가 존재하는지 찾기
-		struct page *page = spt_find_page(spt, addr);
-		
-		if(page == NULL){
-			return false;
-		}
-
-		// 유저 커널을 먼저 검사하고 테스트 해야함
-		// 나중에 고민을 해보겠음
-		// (!write) return false
-		if (write && !page->writable){
-			return false;
-		}
-
-		return vm_do_claim_page (page);
+		return false;
 	}
 
-	return false;
+	if (write && !page->writable){
+		return false;
+	}
+
+	return vm_do_claim_page (page);
 }
+
 
 /* Free the page.
  * DO NOT MODIFY THIS FUNCTION. */
