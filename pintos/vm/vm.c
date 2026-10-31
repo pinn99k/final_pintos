@@ -328,13 +328,19 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		case VM_UNINIT :
 			/* 자식 aux 만들기 */
 			child_aux = malloc (sizeof(struct vm_entry));
+			if (child_aux == NULL) {
+				return false;
+			}		
 			memcpy (child_aux, parent_page->uninit.aux, sizeof(struct vm_entry));
+			
+			/* memcpy 로 복사된 file 은 부모 running_file 이다.
+ 			 * 부모가 먼저 끝나면 닫히므로 자식 running_file 로 바꾼다. */
 			child_aux->file = thread_current ()->running_file;
 
 			/* 자식 spt 등록 */
 			if (!vm_alloc_page_with_initializer (parent_page->uninit.type, 
 				parent_page->va, parent_page->writable, 
-				parent_page->uninit.page_initializer, parent_page->uninit.aux)) {
+				parent_page->uninit.init, child_aux)) {
 				free (child_aux);
 				return false;
 			}					
@@ -352,7 +358,7 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 
 			/* 스택 페이지 확인 */
 			if (parent_page->isFlag) {
-				type = VM_ANON | VM_MARKER_0;
+				type = VM_ANON | VM_MARKER_0;  	/* 스택 페이지면 VM_MARKER_0 표시 */
 			}
 			
 			/* 자식 spt 등록 */
@@ -372,6 +378,7 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 
 			break;
 		case VM_FILE :
+			/* mmap 이후 구현할 것 */
 			break;
 
 		default:
