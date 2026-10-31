@@ -311,8 +311,83 @@ bool
 supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		struct supplemental_page_table *src UNUSED) {
 	
-	// TODO 구현
-	// 존나 복잡할 듯
+	struct hash_iterator i;
+	struct page *parent_page; 	/* 부모 페이지 */
+	struct page *child_page; 	/* 자식 페이지*/
+	struct vm_entry *child_aux = NULL;  
+
+	hash_first(&i, src);
+
+	/* 부모 SPT 순회 */
+	while (hash_next (&i)) {
+		parent_page = hash_entry (hash_cur(&i), struct page, hash_elem);
+
+		/* 부모 페이지 타입 판별 */
+		switch (VM_TYPE (parent_page->operations->type))
+		{
+		case VM_UNINIT :
+			/* 자식 aux 만들기 */
+			child_aux = malloc (sizeof(struct vm_entry));
+			if (child_aux == NULL) {
+				return false;
+			}		
+			memcpy (child_aux, parent_page->uninit.aux, sizeof(struct vm_entry));
+			
+			/* memcpy 로 복사된 file 은 부모 running_file 이다.
+ 			 * 부모가 먼저 끝나면 닫히므로 자식 running_file 로 바꾼다. */
+			child_aux->file = thread_current ()->running_file;
+
+			/* 자식 spt 등록 */
+			if (!vm_alloc_page_with_initializer (parent_page->uninit.type, 
+				parent_page->va, parent_page->writable, 
+				parent_page->uninit.init, child_aux)) {
+				free (child_aux);
+				return false;
+			}					
+
+			break;
+		case VM_ANON :
+			/* 부모 프레임 확인 */
+			if (parent_page->frame == NULL) {
+				/* swap 구현 시 변경.
+				 * 현재는 ANON 페이지가 모두 프레임을 가지고 있음. */
+				return false;
+			}
+			
+			enum vm_type type = VM_ANON;
+
+			/* 스택 페이지 확인 */
+			if (parent_page->isFlag) {
+				type = VM_ANON | VM_MARKER_0;  	/* 스택 페이지면 VM_MARKER_0 표시 */
+			}
+			
+			/* 자식 spt 등록 */
+			if (!vm_alloc_page (type, parent_page->va, parent_page->writable)) {
+				return false;
+			}
+
+			/* 자식 pml4에 매핑 후, child_page 찾기 */
+			if (!vm_claim_page (parent_page->va)) {
+				return false;
+			} else {
+				child_page = spt_find_page (&thread_current()->spt, parent_page->va);
+			}
+
+			/* 부모 프레임에 적재된 데이터 복사 */
+			memcpy (child_page->frame->kva, parent_page->frame->kva, PGSIZE);
+
+			break;
+		case VM_FILE :
+			/* mmap 이후 구현할 것 */
+			break;
+
+		default:
+			return false;
+		}
+	}
+
+
+	return true;
 }
 
 /* Free the resource hold by the supplemental page table */

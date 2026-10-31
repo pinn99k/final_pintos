@@ -227,6 +227,22 @@ __do_fork (void *aux) {
 		goto error;
 
 	process_activate (current);
+
+	
+	// 부모의 진행파일도 옮김
+	if (parent->running_file != NULL){
+		// 주소를 그대로 옮기면 안됩니다;;
+		lock_acquire(&file_lock);
+		struct file *running_f = file_duplicate(parent->running_file);
+		lock_release(&file_lock);
+
+		if (running_f == NULL){
+			goto error;
+		}
+
+		current->running_file = running_f;
+	}
+
 #ifdef VM
 	supplemental_page_table_init (&current->spt);
 	if (!supplemental_page_table_copy (&current->spt, &parent->spt))
@@ -265,19 +281,6 @@ __do_fork (void *aux) {
 		current->fd_table[i] = file_val;
 	}
 
-	// 부모의 진행파일도 옮김
-	if (parent->running_file != NULL){
-		// 주소를 그대로 옮기면 안됩니다;;
-		lock_acquire(&file_lock);
-		struct file *running_f = file_duplicate(parent->running_file);
-		lock_release(&file_lock);
-
-		if (running_f == NULL){
-			goto error;
-		}
-
-		current->running_file = running_f;
-	}
 
 	/* Finally, switch to the newly created process. */
 	if (succ){
