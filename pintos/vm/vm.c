@@ -311,8 +311,50 @@ bool
 supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		struct supplemental_page_table *src UNUSED) {
 	
-	// TODO 구현
-	// 존나 복잡할 듯
+	struct hash_iterator i;
+	struct page *parent_page; 	/* 부모 페이지 */
+	struct page *child_page; 	/* 자식 페이지*/
+	struct vm_entry *child_aux = NULL;  
+
+	hash_first(&i, src);
+
+	/* 부모 SPT 순회 */
+	while (hash_next (&i)) {
+		parent_page = hash_entry (hash_cur(&i), struct page, hash_elem);
+
+		/* 부모 페이지 타입 판별 */
+		switch (VM_TYPE (parent_page->operations->type))
+		{
+		case VM_UNINIT :
+			/* 자식 aux 만들기 */
+			child_aux = malloc (sizeof(struct vm_entry));
+			memcpy (child_aux, parent_page->uninit.aux, sizeof(struct vm_entry));
+			child_aux->file = thread_current ()->running_file;
+
+			/* 자식 spt 등록 */
+			if (!vm_alloc_page_with_initializer (parent_page->uninit.type, 
+				parent_page->va, parent_page->writable, 
+				parent_page->uninit.page_initializer, parent_page->uninit.aux)) {
+				free (child_aux);
+				return false;
+			}					
+
+			break;
+		case VM_ANON :
+			/* */
+			
+
+			break;
+		case VM_FILE :
+			break;
+
+		default:
+			return false;
+		}
+	}
+
+
+	return true;
 }
 
 /* Free the resource hold by the supplemental page table */
