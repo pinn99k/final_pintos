@@ -286,6 +286,7 @@ __do_fork (void *aux) {
 	}
 error:
 	list_remove(&current->child_elem);  // 부모의 child_list에서 빠짐 → wait 대상 아님
+	// spt kill 을 호출해야 하지 않나?
 	sema_up(&current->child_sema);      // 기다려 줄 부모가 없으니 미리 통과권 발급
 	parent->fork_intr = NULL;
 	sema_up(&parent->fork_sema);

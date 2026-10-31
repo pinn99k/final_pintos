@@ -94,23 +94,13 @@ err:
 /* Find VA from spt and return page. On error, return NULL. */
 struct page *
 spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
-	struct page *page = NULL; // NULL로 초기화
-	struct hash_iterator i;
-	hash_first (&i, spt);
+	struct page *page; // NULL로 초기화
+
+	page->va = pg_round_down(va);
 	
-	// 페이지와 연결
-	while (hash_next (&i)){
-		// 페이지 엔트리에 넣기
-		page = hash_entry (hash_cur(&i), struct page, hash_elem);
+	struct hash_elem *find_elem = hash_find(&spt->pages, &page->hash_elem);
 
-		// 맞으면 리턴 page
-		if ((uint64_t)page->va == pg_round_down(va)){
-			return page;
-		}
-	}
-
-	// 다틀렸으면 NULL
-	return NULL;
+	return find_elem != NULL ? hash_entry(find_elem, struct page, hash_elem) : NULL;
 }
 
 /* Insert PAGE into spt with validation. */
@@ -315,11 +305,31 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 	// 존나 복잡할 듯
 }
 
+// 페이지 해제 유틸함수
+// 문법 이슈
+// UNUSED: Pintos 매크로 > 인자 하나를 사용안함
+// typedef void hash_action_func (struct hash_elem *element, void *aux);
+// 이 타입 함수를 사용한다.
+void
+page_cleanner(struct hash_elem *e, void *aux UNUSED){
+	struct page *page = hash_entry (e, struct page, hash_elem);
+	// TODO
+	// 프레임 테이블에서 프레임 빼는거 추가해야 함
+	vm_dealloc_page(page);
+}
+
 /* Free the resource hold by the supplemental page table */
 void
 supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
+	// 해야 하는 일
+	// spt 돌면서 메모리 해제하기
+	// frame 이 존재하면
+	// frame 테이블에서 빼내기 프레임 정리하기
+
+	// hash_clear가 떼어낸 뒤 함수를 호출하므로 free해도 안전
+	hash_clear(&spt->pages, page_cleanner);
 }
 
 /* Returns a hash value for page p. */
