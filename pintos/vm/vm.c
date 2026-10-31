@@ -341,8 +341,34 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 
 			break;
 		case VM_ANON :
-			/* */
+			/* 부모 프레임 확인 */
+			if (parent_page->frame == NULL) {
+				/* swap 구현 시 변경.
+				 * 현재는 ANON 페이지가 모두 프레임을 가지고 있음. */
+				return false;
+			}
 			
+			enum vm_type type = VM_ANON;
+
+			/* 스택 페이지 확인 */
+			if (parent_page->isFlag) {
+				type = VM_ANON | VM_MARKER_0;
+			}
+			
+			/* 자식 spt 등록 */
+			if (!vm_alloc_page (type, parent_page->va, parent_page->writable)) {
+				return false;
+			}
+
+			/* 자식 pml4에 매핑 후, child_page 찾기 */
+			if (!vm_claim_page (parent_page->va)) {
+				return false;
+			} else {
+				child_page = spt_find_page (&thread_current()->spt, parent_page->va);
+			}
+
+			/* 부모 프레임에 적재된 데이터 복사 */
+			memcpy (child_page->frame->kva, parent_page->frame->kva, PGSIZE);
 
 			break;
 		case VM_FILE :
