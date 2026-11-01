@@ -365,12 +365,13 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 			if (!vm_alloc_page (type, parent_page->va, parent_page->writable)) {
 				return false;
 			}
-
-			/* 자식 pml4에 매핑 후, child_page 찾기 */
-			if (!vm_claim_page (parent_page->va)) {
+			
+			/* spt에서 child_page 찾기 */
+			child_page = spt_find_page (&thread_current()->spt, parent_page->va);
+			
+			/* 자식 pml4에 매핑 */
+			if (!vm_do_claim_page (child_page)) {
 				return false;
-			} else {
-				child_page = spt_find_page (&thread_current()->spt, parent_page->va);
 			}
 
 			/* 부모 프레임에 적재된 데이터 복사 */
