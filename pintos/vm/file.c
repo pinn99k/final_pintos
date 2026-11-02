@@ -3,6 +3,8 @@
 #include "vm/vm.h"
 #include "threads/vaddr.h"
 #include "lib/round.h"
+#include "threads/malloc.h"
+#include <string.h>
 
 static bool file_backed_swap_in (struct page *page, void *kva);
 static bool file_backed_swap_out (struct page *page);
@@ -25,9 +27,18 @@ vm_file_init (void) {
 bool
 file_backed_initializer (struct page *page, enum vm_type type, void *kva) {
 	/* Set up the handler */
-	page->operations = &file_ops;
+	struct vm_entry *src = page->uninit.aux;
 
+	page->operations = &file_ops;
 	struct file_page *file_page = &page->file;
+	file_page->aux = malloc(sizeof(struct vm_entry));
+
+	if(file_page->aux == NULL){
+		return false;
+	}
+	memcpy(file_page->aux, src, sizeof(struct vm_entry));
+
+	return true;
 }
 
 /* Swap in the page by read contents from the file. */
@@ -48,7 +59,7 @@ file_backed_destroy (struct page *page) {
 	struct file_page *file_page UNUSED = &page->file;
 }
 
-/* 페이지 지연 로딩 함수, uninit_page의 콜백함수로 지정. */
+/* mmap 로딩 함수 */
 static bool
 mmap_load_segment (struct page *page, void *aux) {
 	/* TODO: Load the segment from the file */
@@ -88,7 +99,6 @@ do_mmap (void *addr, size_t length, int writable,
 	if(is_kernel_vaddr(addr + length -1) || addr > (addr + length -1)){
 		return NULL;
 	}
-	
 	
 	// 페이지가 정렬되어있는지 확인해야 함
 	// 4KB 로 나눠서 페이지를 만들기 때문
