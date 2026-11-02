@@ -96,9 +96,9 @@ struct page *
 spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 	struct page page; // NULL로 초기화
 
-	page->va = pg_round_down(va);
+	page.va = pg_round_down(va);
 	
-	struct hash_elem *find_elem = hash_find(&spt->pages, &page->hash_elem);
+	struct hash_elem *find_elem = hash_find(&spt->pages, &page.hash_elem);
 
 	return find_elem != NULL ? hash_entry(find_elem, struct page, hash_elem) : NULL;
 }
@@ -124,7 +124,6 @@ void
 spt_remove_page (struct supplemental_page_table *spt, struct page *page) {
 	hash_delete(&spt->pages, &page->hash_elem); // 고민
 	vm_dealloc_page (page);
-	return true;
 }
 
 /* Get the struct frame, that will be evicted. */
