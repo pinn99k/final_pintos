@@ -94,7 +94,7 @@ err:
 /* Find VA from spt and return page. On error, return NULL. */
 struct page *
 spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
-	struct page *page; // NULL로 초기화
+	struct page page; // NULL로 초기화
 
 	page->va = pg_round_down(va);
 	
