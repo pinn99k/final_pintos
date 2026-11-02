@@ -99,6 +99,16 @@ do_mmap (void *addr, size_t length, int writable,
 	if(is_kernel_vaddr(addr + length -1) || addr > (addr + length -1)){
 		return NULL;
 	}
+
+	// 오프셋이 정렬되어있는지 확인하기;;
+	if((offset % PGSIZE) != 0){
+		return NULL;
+	}
+
+	// 오프셋 검사해야함
+	if(offset < 0 || offset > file_length(file)){
+		return NULL;
+	}
 	
 	// 페이지가 정렬되어있는지 확인해야 함
 	// 4KB 로 나눠서 페이지를 만들기 때문
@@ -119,7 +129,7 @@ do_mmap (void *addr, size_t length, int writable,
 	size_t read_bytes = length < file_size ? length : file_size;
 	size_t zero_bytes = ROUND_UP(length, PGSIZE) - read_bytes;
 
-	// 몇개의 페이지가 필요한지
+	// 몇개의 페이지가 필요한지/ 
 	int count = (length + PGSIZE - 1) / PGSIZE;
 	struct vm_entry *vm_entry =  NULL;
 	void * start = addr;
