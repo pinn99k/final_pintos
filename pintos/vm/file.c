@@ -53,6 +53,29 @@ file_backed_swap_in (struct page *page, void *kva) {
 static bool
 file_backed_swap_out (struct page *page) {
 	struct file_page *file_page UNUSED = &page->file;
+
+	// 더티비트인지 확인해서 저장하기
+	bool dirty = pml4_is_dirty(page->cur_t->pml4, page->va);
+
+	// pml4 매핑 해제
+	pml4_clear_page(page->cur_t->pml4, page->va);
+
+	// 더티비트 확인해서 옮기기
+	if(dirty){
+		// 더티비트면 KVA 값을 읽어서 파일에 쓰기
+		lock_acquire(&file_lock);
+		if (file_page->aux->file != NULL) {
+			file_write_at (file_page->aux->file, page->frame->kva, file_page->aux->read_bytes, file_page->aux->ofs);
+		}
+		lock_release(&file_lock);
+	}
+	
+	// 연결 끊기
+	page->frame->page = NULL;
+	page->frame = NULL;
+	
+	// 리턴 트루
+	return true;
 }
 
 /* Destory the file backed page. PAGE will be freed by the caller. */

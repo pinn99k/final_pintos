@@ -181,8 +181,10 @@ vm_evict_frame (void) {
 
 	// 스왑아웃 구현
 	if(victim != NULL){
+		// 락을 잡아주고 리턴하기 전에 다 풀어주기
 		lock_acquire(&frame_lock);
 		if(!swap_out(victim->page)){
+			lock_release(&frame_lock);
 			return NULL;
 		}
 		lock_release(&frame_lock);
