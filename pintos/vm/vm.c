@@ -214,7 +214,12 @@ vm_get_frame (void) {
 	frame->kva = palloc_get_page(PAL_USER);
 	frame->page = NULL;
 	if(frame->kva == NULL){
+		// victim 은 이미 frame_table 에 존재
+		free(frame);
 		frame = vm_evict_frame();
+		ASSERT (frame != NULL);
+		frame->page = NULL;
+		return frame;
 	}
 	
 	ASSERT (frame != NULL);
