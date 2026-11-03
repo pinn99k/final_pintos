@@ -137,7 +137,8 @@ spt_remove_page (struct supplemental_page_table *spt, struct page *page) {
 static struct frame *
 vm_get_victim (void) {
 	struct frame *victim = NULL;
-	 /* TODO: The policy for eviction is up to you. */
+	/* TODO: The policy for eviction is up to you. */
+	// 희생자 프레임 골라오기
 
 	return victim;
 }
@@ -149,7 +150,12 @@ vm_evict_frame (void) {
 	struct frame *victim UNUSED = vm_get_victim ();
 	/* TODO: swap out the victim and return the evicted frame. */
 
-	return NULL;
+	// 스왑아웃 구현
+	if(victim != NULL){
+		swap_out(victim->page);
+	}
+	
+	return victim;
 }
 
 /* palloc() and get frame. If there is no available page, evict the page
