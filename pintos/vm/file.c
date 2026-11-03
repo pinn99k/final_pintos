@@ -46,7 +46,38 @@ file_backed_initializer (struct page *page, enum vm_type type, void *kva) {
 /* Swap in the page by read contents from the file. */
 static bool
 file_backed_swap_in (struct page *page, void *kva) {
-	struct file_page *file_page UNUSED = &page->file;
+	struct file_page *file_page = &page->file;
+	
+	/* page->file.aux 에서 vm_entry 사본을 꺼냅니다 (file, ofs, read_bytes, zero_bytes). */
+	struct vm_entry *_aux = file_page->aux;
+	
+	/* 그 file 의 ofs 위치에서 read_bytes 만큼 kva 로 읽습니다. file_lock 을 잡고 읽습니다. */
+	bool is_holding = lock_held_by_current_thread(&file_lock);
+	if(!is_holding){
+		lock_acquire(&file_lock);
+
+		/* 파일을 버퍼에 read_bytes 만큼 읽어들임. */
+		/* 읽은 바이트 수가 read_bytes 와 다르면 false 를 반환합니다. */
+		if (_aux->read_bytes != 0 && file_read_at (_aux->file, page->frame->kva, _aux->read_bytes, _aux->ofs) != (int) _aux->read_bytes) {
+			lock_release(&file_lock);
+			return false;
+		}
+
+		lock_release(&file_lock);
+	}
+	else{
+
+		if (_aux->read_bytes != 0 && file_read_at (_aux->file, page->frame->kva, _aux->read_bytes, _aux->ofs) != (int) _aux->read_bytes) {
+			return false;
+		}
+	}
+
+	/* kva + read_bytes 부터 zero_bytes 만큼 0 으로 채웁니다. */
+	memset (page->frame->kva + _aux->read_bytes, 0, _aux->zero_bytes);
+
+	/* true 를 반환합니다. */
+	return true;
+	
 }
 
 /* Swap out the page by writeback contents to the file. */
