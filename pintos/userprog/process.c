@@ -913,37 +913,30 @@ lazy_load_segment (struct page *page, void *aux) {
 	/* TODO: VA is available when calling this function. */
 	struct vm_entry *_aux = aux;
 
-	/* 파일 커서를 오프셋 위치로 옮겨준다.  */
+	/* 현재 thread 가 lock을 잡고 있는지 확인 */
 	bool is_holding = lock_held_by_current_thread(&file_lock);
-	if(!is_holding){
+	
+	if (!is_holding) {
 		lock_acquire(&file_lock);
+	}
+	
+	/* 열린 파일에 ofs 부터 read_bytes 만큼 읽어와서 frame 에 복사 */
+	off_t bytes_read = file_read_at (_aux->file, page->frame->kva, _aux->read_bytes, _aux->ofs);
 
-		file_seek(_aux->file, _aux->ofs);
-
-		/* 파일을 버퍼에 read_bytes 만큼 읽어들임. */
-		if (_aux->read_bytes != 0 && file_read (_aux->file, page->frame->kva, _aux->read_bytes) != (int) _aux->read_bytes) {
-			free (_aux);
-			lock_release(&file_lock);
-			return false;
-		}
-
+	if (!is_holding) {
 		lock_release(&file_lock);
 	}
-	else{
-		file_seek(_aux->file, _aux->ofs);
 
-		if (_aux->read_bytes != 0 && file_read (_aux->file, page->frame->kva, _aux->read_bytes) != (int) _aux->read_bytes) {
-			free (_aux);
-			return false;
-		}
+	if (bytes_read != (off_t) _aux->read_bytes) {
+		return false;
 	}
 
 	/* 물리메모리의 페이지에 read_bytes 만큼 채우고 나머지 0으로 채우기  */
 	memset (page->frame->kva + _aux->read_bytes, 0, _aux->zero_bytes);
 
 	/* vm_entry를 할당해제 시켜준다. (메모리누수 방지) */
-	
 	free (_aux);
+
 	return true;
 }
 
