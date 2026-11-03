@@ -36,6 +36,8 @@ int sys_write(int fd, const void *buffer, unsigned size); // 구현/테스트X
 void seek (int fd, unsigned position); // 미구현
 unsigned tell (int fd); // 미구현
 void sys_close (int fd); // 구현/테스트X
+void *sys_mmap(void *addr, size_t length, int writable, int fd, off_t offset);
+void sys_munmap(void *addr);
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -214,10 +216,13 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			sys_close ((int) f->R.rdi);
 			break;
 		// Project Part 3 - 4
-		// case SYS_MMAP:
-		// 	break;
-		// case SYS_MUNMAP:
-		// 	break;
+		case SYS_MMAP:
+		// 인수는 %rdi, %rsi, %rdx, %r10, %r8, %r9 순서로 전달
+			f->R.rax = sys_mmap((void *) f->R.rdi, (size_t) f->R.rsi, (int) f->R.rdx,(int)f->R.r10,(off_t) f->R.r8);
+			break;
+		case SYS_MUNMAP:
+			sys_munmap((void *) f->R.rdi);
+			break;
 		// case SYS_CHDIR:
 		// 	break;
 		// case SYS_MKDIR:
@@ -438,4 +443,23 @@ void
 sys_exit(int status){
 	thread_current()->exit_status = status;
 	thread_exit();
+}
+
+void *
+sys_mmap (void *addr, size_t length, int writable, int fd, off_t offset){
+	// 0과 1이면 NULL 리턴
+	if (fd == 0 || fd == 1){
+		return NULL;
+	}
+	
+	struct file *file = fd_get(fd);
+	// 파일이 NULL 일 경우 방지
+	if(file == NULL){
+		return NULL;
+	}
+	return do_mmap(addr, length, writable, file, offset);	
+}
+
+void sys_munmap(void *addr){
+	do_munmap(addr);
 }
