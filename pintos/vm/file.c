@@ -46,7 +46,35 @@ file_backed_swap_out (struct page *page) {
 /* Destory the file backed page. PAGE will be freed by the caller. */
 static void
 file_backed_destroy (struct page *page) {
-	struct file_page *file_page UNUSED = &page->file;
+	struct file_page *file_page = &page->file;
+	
+	if (page->frame != NULL) {
+		
+		/* 프레임이 있을 때, pml4_is_dirty 면 -> file의 ofs에 read_bytes 만큼 쓰기 */ 
+		if (pml4_is_dirty(thread_current()->pml4, page->va)) {
+			lock_acquire(&file_lock);
+			if (file_page->aux->file != NULL) {
+				file_write_at (file_page->aux->file, page->frame->kva, file_page->aux->read_bytes, file_page->aux->ofs);
+			}
+			lock_release(&file_lock);
+		}
+			
+		/* pml4_clear_page로 pml4 에서 등록해제 */
+		pml4_clear_page(thread_current()->pml4, page->va);	
+			
+		/* 프레임 해제 */
+		palloc_free_page(page->frame->kva);
+		free(page->frame);
+	}
+	
+	/* file_close, file 객체 해제 */
+	lock_acquire(&file_lock);
+	if (file_page->aux->file != NULL) {
+		file_close(file_page->aux->file);
+	}	
+	lock_release(&file_lock);      
+
+	free(file_page->aux);
 }
 
 /* Do the mmap */
