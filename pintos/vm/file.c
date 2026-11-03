@@ -98,13 +98,28 @@ mmap_load_segment (struct page *page, void *aux) {
 	struct vm_entry *_aux = aux;
 
 	/* 파일 커서를 오프셋 위치로 옮겨준다.  */
-	file_seek(_aux->file, _aux->ofs);
-	
-	/* 파일을 버퍼에 read_bytes 만큼 읽어들임. */
-	if (_aux->read_bytes != 0 && file_read (_aux->file, page->frame->kva, _aux->read_bytes) != (int) _aux->read_bytes) {
+	bool is_holding = lock_held_by_current_thread(&file_lock);
+	if(!is_holding){
+		lock_acquire(&file_lock);
 
-		free (_aux);
-		return false;
+		file_seek(_aux->file, _aux->ofs);
+
+		/* 파일을 버퍼에 read_bytes 만큼 읽어들임. */
+		if (_aux->read_bytes != 0 && file_read (_aux->file, page->frame->kva, _aux->read_bytes) != (int) _aux->read_bytes) {
+			free (_aux);
+			lock_release(&file_lock);
+			return false;
+		}
+
+		lock_release(&file_lock);
+	}
+	else{
+		file_seek(_aux->file, _aux->ofs);
+
+		if (_aux->read_bytes != 0 && file_read (_aux->file, page->frame->kva, _aux->read_bytes) != (int) _aux->read_bytes) {
+			free (_aux);
+			return false;
+		}
 	}
 
 	/* 물리메모리의 페이지에 read_bytes 만큼 채우고 나머지 0으로 채우기  */
@@ -121,7 +136,16 @@ void *
 do_mmap (void *addr, size_t length, int writable,
 		struct file *file, off_t offset) {
 	struct supplemental_page_table *spt = &thread_current ()->spt;
-			
+	off_t file_len;
+	bool is_holding = lock_held_by_current_thread(&file_lock);
+	if(!is_holding){
+		lock_acquire(&file_lock);
+		file_len = file_length(file);
+		lock_release(&file_lock);
+	}
+	else{
+		file_len = file_length(file);
+	}
 	// 예외 처리
 	if(addr == NULL || is_kernel_vaddr(addr) || length == 0){
 		return NULL;
@@ -136,7 +160,7 @@ do_mmap (void *addr, size_t length, int writable,
 	}
 
 	// 오프셋 검사해야함
-	if(offset < 0 || offset > file_length(file)){
+	if(offset < 0 || offset > file_len){
 		return NULL;
 	}
 	
@@ -155,7 +179,7 @@ do_mmap (void *addr, size_t length, int writable,
 		}
 	}
 
-	size_t file_size = file_length(file) - offset;
+	size_t file_size = file_len - offset;
 	size_t read_bytes = length < file_size ? length : file_size;
 	size_t zero_bytes = ROUND_UP(length, PGSIZE) - read_bytes;
 
@@ -170,9 +194,17 @@ do_mmap (void *addr, size_t length, int writable,
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
+		is_holding = lock_held_by_current_thread(&file_lock);
 		vm_entry = malloc (sizeof (struct vm_entry));
 		// 새 파일을 넣어야 나중에 해제되지 않음
-		vm_entry->file = file_reopen(file);
+		if(!is_holding){
+			lock_acquire(&file_lock);
+			vm_entry->file = file_reopen(file);
+			lock_release(&file_lock);
+		}
+		else{
+			vm_entry->file = file_reopen(file);
+		}
 		vm_entry->ofs = offset;
 		vm_entry->read_bytes = page_read_bytes;
 		vm_entry->zero_bytes = page_zero_bytes;
@@ -184,7 +216,7 @@ do_mmap (void *addr, size_t length, int writable,
 		/* 페이지 초기화 및 spt에 등록 */
 		if (!vm_alloc_page_with_initializer (VM_FILE, addr,
 					writable, mmap_load_segment, aux))
-			return false;
+			return NULL;
 
 		/* Advance. */
 		read_bytes -= page_read_bytes;

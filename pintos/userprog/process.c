@@ -567,7 +567,9 @@ load (const char *file_name, struct intr_frame *if_) {
 	process_activate (thread_current ());
 
 	/* Open executable file. */
+	lock_acquire(&file_lock);
 	file = filesys_open (token_list[0]);
+	lock_release(&file_lock);
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
@@ -912,13 +914,28 @@ lazy_load_segment (struct page *page, void *aux) {
 	struct vm_entry *_aux = aux;
 
 	/* 파일 커서를 오프셋 위치로 옮겨준다.  */
-	file_seek(_aux->file, _aux->ofs);
-	
-	/* 파일을 버퍼에 read_bytes 만큼 읽어들임. */
-	if (_aux->read_bytes != 0 && file_read (_aux->file, page->frame->kva, _aux->read_bytes) != (int) _aux->read_bytes) {
+	bool is_holding = lock_held_by_current_thread(&file_lock);
+	if(!is_holding){
+		lock_acquire(&file_lock);
 
-		free (_aux);
-		return false;
+		file_seek(_aux->file, _aux->ofs);
+
+		/* 파일을 버퍼에 read_bytes 만큼 읽어들임. */
+		if (_aux->read_bytes != 0 && file_read (_aux->file, page->frame->kva, _aux->read_bytes) != (int) _aux->read_bytes) {
+			free (_aux);
+			lock_release(&file_lock);
+			return false;
+		}
+
+		lock_release(&file_lock);
+	}
+	else{
+		file_seek(_aux->file, _aux->ofs);
+
+		if (_aux->read_bytes != 0 && file_read (_aux->file, page->frame->kva, _aux->read_bytes) != (int) _aux->read_bytes) {
+			free (_aux);
+			return false;
+		}
 	}
 
 	/* 물리메모리의 페이지에 read_bytes 만큼 채우고 나머지 0으로 채우기  */

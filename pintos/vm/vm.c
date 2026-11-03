@@ -4,6 +4,7 @@
 #include "vm/vm.h"
 #include "vm/inspect.h"
 #include "threads/vaddr.h"
+#include "userprog/syscall.h"
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -325,7 +326,29 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 			
 			/* memcpy 로 복사된 file 은 부모 running_file 이다.
  			 * 부모가 먼저 끝나면 닫히므로 자식 running_file 로 바꾼다. */
-			child_aux->file = thread_current ()->running_file;
+			if(VM_TYPE(parent_page->uninit.type) == VM_FILE){
+				// 자식을 아직 안만들어서 부모의 타입으로 가져와야 함;
+				// file 일 경우 reopen을 해줘야 서로 영향이 없음
+				bool is_holding = lock_held_by_current_thread(&file_lock);
+				struct file *new_file;
+				if(!is_holding){
+					lock_acquire(&file_lock);
+					new_file = file_reopen(child_aux->file);
+					lock_release(&file_lock);
+				}
+				else{
+					new_file = file_reopen(child_aux->file);
+				}
+
+				if (new_file == NULL){
+					free (child_aux);
+					return false;
+				}
+				child_aux->file = new_file;
+			}
+			else{
+				child_aux->file = thread_current ()->running_file;
+			}
 
 			/* 자식 spt 등록 */
 			if (!vm_alloc_page_with_initializer (parent_page->uninit.type, 
