@@ -6,10 +6,13 @@
 #include "threads/vaddr.h"
 #include "userprog/syscall.h"
 
+static struct list frame_table;
+static struct lock frame_lock;
+
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
 void
-vm_init (struct hash *vm) {
+vm_init (void) {
 	vm_anon_init ();
 	vm_file_init ();
 #ifdef EFILESYS  /* For project 4 */
@@ -18,6 +21,8 @@ vm_init (struct hash *vm) {
 	register_inspect_intr ();
 	/* DO NOT MODIFY UPPER LINES. */
 	/* TODO: Your code goes here. */
+	list_init(&frame_table);
+	lock_init(&frame_lock);
 }
 
 /* Get the type of the page. This function is useful if you want to know the
@@ -168,15 +173,17 @@ vm_get_frame (void) {
 	frame->kva = palloc_get_page(PAL_USER);
 	frame->page = NULL;
 	if(frame->kva == NULL){
-		//페이지 스왑
-		return NULL;
+		frame = vm_evict_frame();
 	}
 	
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);
 	
 	// 아니 프레임 리스트로 연결 하긴 해야하는데 이걸 어디서 해야할지 모르겠어요;;
-	// list_push_back(&frame_list, &frame->frame_elem);
+	lock_acquire(&frame_lock);
+	list_push_back(&frame_table, &frame->frame_elem);
+	lock_release(&frame_lock);
+
 	return frame;
 }
 
@@ -243,12 +250,25 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	return vm_do_claim_page (page);
 }
 
+// 프레임 지워주는 친구
+void
+frame_list_remove(struct frame *frame){
+	lock_acquire(&frame_lock);
+	list_remove(&frame->frame_elem);
+	lock_release(&frame_lock);
+
+	free(frame);
+}
 
 /* Free the page.
  * DO NOT MODIFY THIS FUNCTION. */
 void
 vm_dealloc_page (struct page *page) {
+	struct frame *f = page->frame;
 	destroy (page);
+	if(f != NULL){
+		frame_list_remove(f);
+	}
 	free (page);
 }
 
@@ -413,7 +433,7 @@ void
 page_cleanner(struct hash_elem *e, void *aux UNUSED){
 	struct page *page = hash_entry (e, struct page, hash_elem);
 	// TODO
-	// 프레임 테이블에서 프레임 빼는거 추가해야 함
+	// 프레임 꺼내서 지워야 함
 	vm_dealloc_page(page);
 }
 
