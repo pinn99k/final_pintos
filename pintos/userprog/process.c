@@ -419,6 +419,7 @@ process_exit (void) {
 		palloc_free_page(curr->fd_table);
 		curr->fd_table = NULL;
 	}
+	process_cleanup ();
 
 	sema_up(&curr->parent_sema);  // 부모 프로세스를 깨운다.
 	
@@ -435,7 +436,6 @@ process_exit (void) {
 			childs = e;
 		}
 	}
-	process_cleanup ();
 }
 
 /* Free the current process's resources. */
