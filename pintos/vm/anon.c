@@ -13,6 +13,9 @@ static bool anon_swap_in (struct page *page, void *kva);
 static bool anon_swap_out (struct page *page);
 static void anon_destroy (struct page *page);
 
+// 섹터 계산하는 매크로임 (김태규 피셜 좋다)
+#define SECTORS_PER_PAGE (PGSIZE / DISK_SECTOR_SIZE)
+
 /* DO NOT MODIFY this struct */
 static const struct page_operations anon_ops = {
 	.swap_in = anon_swap_in,
@@ -82,6 +85,39 @@ anon_swap_in (struct page *page, void *kva) {
 static bool
 anon_swap_out (struct page *page) {
 	struct anon_page *anon_page = &page->anon;
+
+	/* 스왑 락을 잡고 돌려야 함
+	섹터 8개를 기준으로 슬롯을 돌면서 빈걸 찾아야 하는데
+	플립 내장함수 사용
+	못찾으면 false 반환
+	찾았으면 스왑디스크에 물리 페이지 값을 그대로 넣기
+	페이지랑 물리페이지 매핑 해제해줘야 함
+	*/
+	size_t slot;
+	lock_acquire(&swap_lock);
+	slot = bitmap_scan_and_flip(swap_table, 0, 1, false);
+	lock_release(&swap_lock);
+
+	// 실패 예외 처리
+	if(slot == BITMAP_ERROR){
+		return false;
+	}
+
+	pml4_clear_page(page->cur_t->pml4, page->va);
+
+	for (int i = 0; i < SECTORS_PER_PAGE; i++){
+		// 섹터 번호 : slot * SECTORS_PER_PAGE + i
+		// 버퍼 : page->frame->kva + i * DISK_SECTOR_SIZE
+		// 슬롯의 섹터 번호에 버퍼의 메모리를 복사하는 것이다.
+		disk_write(swap_disk, slot * SECTORS_PER_PAGE + i, page->frame->kva + i * DISK_SECTOR_SIZE);
+	}
+
+	anon_page->slot_num = slot;
+	// 성공하면 연결을 해제해줘야 한다.
+	page->frame->page = NULL;
+	page->frame = NULL;
+
+	return true;
 }
 
 /* Destroy the anonymous page. PAGE will be freed by the caller. */
