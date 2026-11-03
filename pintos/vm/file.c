@@ -99,7 +99,7 @@ file_backed_destroy (struct page *page) {
 			
 		/* 프레임 해제 */
 		palloc_free_page(page->frame->kva);
-		free(page->frame);
+		
 	}
 	
 	/* file_close, file 객체 해제 */
