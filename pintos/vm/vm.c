@@ -4,6 +4,7 @@
 #include "vm/vm.h"
 #include "vm/inspect.h"
 #include "threads/vaddr.h"
+#include "userprog/syscall.h"
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -328,7 +329,16 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 			if(VM_TYPE(parent_page->uninit.type) == VM_FILE){
 				// 자식을 아직 안만들어서 부모의 타입으로 가져와야 함;
 				// file 일 경우 reopen을 해줘야 서로 영향이 없음
-				struct file *new_file = file_reopen(thread_current()->running_file);
+				bool is_holding = lock_held_by_current_thread(&file_lock);
+				struct file *new_file;
+				if(!is_holding){
+					lock_acquire(&file_lock);
+					new_file = file_reopen(child_aux->file);
+					lock_release(&file_lock);
+				}
+				else{
+					new_file = file_reopen(child_aux->file);
+				}
 
 				if (new_file == NULL){
 					free (child_aux);
