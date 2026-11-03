@@ -59,6 +59,23 @@ anon_initializer (struct page *page, enum vm_type type, void *kva) {
 static bool
 anon_swap_in (struct page *page, void *kva) {
 	struct anon_page *anon_page = &page->anon;
+	
+	ASSERT (anon_page->slot_num != BITMAP_ERROR);
+
+	/* slot_num 슬롯의 섹터 내용 읽고 메모리 적재 */
+	for (int i = 0; i < (PGSIZE / DISK_SECTOR_SIZE); i++) {
+		disk_read (swap_disk, anon_page->slot_num * (PGSIZE / DISK_SECTOR_SIZE) + i, page->frame->kva + i * DISK_SECTOR_SIZE);
+	}
+	
+	/* swap_table의 slot_num 슬롯 비우기 */
+	lock_acquire (&swap_lock);
+		bitmap_set (swap_table, anon_page->slot_num, false);
+	lock_release (&swap_lock);
+
+	/* 페이지에 스왑에 없음 표시 */
+	anon_page->slot_num = BITMAP_ERROR;
+
+	return true;
 }
 
 /* Swap out the page by writing contents to the swap disk. */
