@@ -10,6 +10,7 @@
 
 #include "vm/vm.h"
 #include "vm/uninit.h"
+#include "userprog/syscall.h"
 
 static bool uninit_initialize (struct page *page, void *kva);
 static void uninit_destroy (struct page *page);
@@ -65,6 +66,17 @@ uninit_destroy (struct page *page) {
 	struct uninit_page *uninit UNUSED = &page->uninit;
 	/* TODO: Fill this function.
 	 * TODO: If you don't have anything to do, just return. */
+	
+	/* 매핑되지 않은 파일페이지만 열린 파일 닫기 */
+	if (page_get_type (page) == VM_FILE) {
+		struct vm_entry *_aux = uninit->aux;
+		
+		lock_acquire(&file_lock);
+		if (_aux->file != NULL) {
+			file_close (_aux->file);
+		}
+		lock_release(&file_lock);
+	}
 	
 	// 한번도 폴트가 안나는 페이지 삭제
 	free(uninit->aux);
