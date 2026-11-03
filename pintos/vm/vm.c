@@ -138,9 +138,38 @@ static struct frame *
 vm_get_victim (void) {
 	struct frame *victim = NULL;
 	/* TODO: The policy for eviction is up to you. */
-	// 희생자 프레임 골라오기
+	
+	// 프레임 테이블 존재 확인
+	if(list_empty(&frame_table)){
+		return NULL;
+	}
 
-	return victim;
+	// 희생자 프레임 골라오기
+	struct list_elem *e = list_begin(&frame_table);
+	while(true){
+		// 두번 돌면 성공할 수도 있으니까
+		if(e == list_end(&frame_table)){
+			e = list_begin(&frame_table);
+		}
+
+		victim = list_entry(e, struct frame, frame_elem);
+		struct page *p = victim->page;
+		if(p == NULL){
+			e = list_next(e);
+			continue;
+		}
+
+		// 사용할 수 있는 페이지
+		if(pml4_is_accessed(p->cur_t->pml4, p->va) == 0){
+			return victim;
+		}
+		// 사용 불가 : 한번 돌았으면 0으로바꾸기
+		pml4_set_accessed(p->cur_t->pml4, p->va, 0);
+
+		e = list_next(e);
+	}
+
+	return NULL;
 }
 
 /* Evict one page and return the corresponding frame.
@@ -152,9 +181,13 @@ vm_evict_frame (void) {
 
 	// 스왑아웃 구현
 	if(victim != NULL){
-		swap_out(victim->page);
+		lock_acquire(&frame_lock);
+		if(!swap_out(victim->page)){
+			return NULL;
+		}
+		lock_release(&frame_lock);
 	}
-	
+
 	return victim;
 }
 

@@ -13,6 +13,9 @@ static bool anon_swap_in (struct page *page, void *kva);
 static bool anon_swap_out (struct page *page);
 static void anon_destroy (struct page *page);
 
+// 섹터 계산하는 매크로임 (김태규 피셜 좋다)
+#define SECTORS_PER_PAGE (PGSIZE / DISK_SECTOR_SIZE)
+
 /* DO NOT MODIFY this struct */
 static const struct page_operations anon_ops = {
 	.swap_in = anon_swap_in,
@@ -65,6 +68,7 @@ anon_swap_in (struct page *page, void *kva) {
 static bool
 anon_swap_out (struct page *page) {
 	struct anon_page *anon_page = &page->anon;
+
 }
 
 /* Destroy the anonymous page. PAGE will be freed by the caller. */
